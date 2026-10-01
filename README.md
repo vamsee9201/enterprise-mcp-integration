@@ -58,7 +58,7 @@ flowchart LR
 
 ## Workflows and permissions
 
-**Timesheets:** Monday-start weeks, active assigned projects, decimal hours greater than zero, at most 24 hours per day. Draft entries can be edited or deleted. Nonempty sheets can be submitted. Managers approve or reject direct-report sheets; rejection requires a reason. Editing a rejected sheet returns it to draft. Submitted and approved sheets are locked.
+**Timesheets:** a weekly project-by-day grid shows every assigned project, with seven MM/DD date columns and zero for empty days. Select any date to view its Monday–Sunday week. Click an empty cell to log time with its project/date prefilled, or a populated cell to inspect and manage individual entries; multiple entries are summed per cell. Zeroes are display defaults and create no database records. Monday-start weeks, active assigned projects, decimal hours greater than zero, at most 24 hours per day. Draft entries can be edited or deleted. Nonempty sheets can be submitted. Managers approve or reject direct-report sheets; rejection requires a reason. Editing a rejected sheet returns it to draft. Submitted and approved sheets are locked.
 
 **Tasks:** managers create, edit and assign within their team; employees see and change the status of tasks assigned to them. States are TODO, IN_PROGRESS and DONE; reopening is allowed.
 

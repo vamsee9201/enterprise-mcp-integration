@@ -1,5 +1,7 @@
 "use client";
+import { useState } from "react";
 import {
+  Plus,
   ArrowRight,
   ChevronLeft,
   ChevronRight,
@@ -16,7 +18,7 @@ import {
   type Sheet,
   type Entry,
 } from "../lib/api";
-import { Badge, Empty, Loading } from "./ui";
+import { Badge, Empty, Loading, Modal } from "./ui";
 import type { Mutate } from "../lib/types";
 
 type Props = {
@@ -26,7 +28,7 @@ type Props = {
   setWeek: (week: string) => void;
   loading: boolean;
   busy: boolean;
-  openEntry: (entry: Entry) => void;
+  openEntry: (entry: Entry | null, projectId: string, workDate: string) => void;
   mutate: Mutate;
 };
 export function TimesheetView({
@@ -39,6 +41,46 @@ export function TimesheetView({
   openEntry,
   mutate,
 }: Props) {
+  const [selectedCell, setSelectedCell] = useState<{
+    projectId: string;
+    workDate: string;
+  } | null>(null);
+  const dates = Array.from({ length: 7 }, (_, index) => shiftDate(week, index));
+  const entries = sheet?.entries || [];
+  const editable = !!sheet && ["DRAFT", "REJECTED"].includes(sheet.status);
+  // Keep historical hours visible if a project is no longer currently assigned.
+  const rows = [...projects];
+  for (const entry of entries) {
+    if (!rows.some((project) => project.id === entry.project_id))
+      rows.push({
+        id: entry.project_id,
+        name: entry.project_name,
+        description: "Historical project",
+      });
+  }
+  const matching = (projectId: string, workDate: string) =>
+    entries.filter(
+      (entry) => entry.project_id === projectId && entry.work_date === workDate,
+    );
+  const total = (items: Entry[]) =>
+    items.reduce(
+      (sum, entry) => sum + Math.round(Number(entry.hours) * 100),
+      0,
+    ) / 100;
+  const shortDate = (value: string) =>
+    `${value.slice(5, 7)}/${value.slice(8, 10)}`;
+  const selectedProject = rows.find(
+    (project) => project.id === selectedCell?.projectId,
+  );
+  const cellEntries = selectedCell
+    ? matching(selectedCell.projectId, selectedCell.workDate)
+    : [];
+  const assigned = (projectId: string) =>
+    projects.some((project) => project.id === projectId);
+  function editCell(entry: Entry | null, projectId: string, workDate: string) {
+    setSelectedCell(null);
+    openEntry(entry, projectId, workDate);
+  }
   return (
     <>
       <div className="summary-grid">
@@ -78,7 +120,7 @@ export function TimesheetView({
       <section className="panel">
         <div className="panel-head">
           <div>
-            <h2>Weekly entries</h2>
+            <h2>Weekly timesheet</h2>
             <span className="subtle">
               {dateLabel(week)} – {dateLabel(shiftDate(week, 6))}
             </span>
@@ -115,69 +157,81 @@ export function TimesheetView({
         )}
         {loading ? (
           <Loading />
-        ) : !sheet?.entries.length ? (
+        ) : !rows.length ? (
           <Empty
-            title="Your week starts here"
-            text="Log hours against an assigned project to build your timesheet."
+            title="No assigned projects"
+            text="Assigned projects will appear here for time logging."
           />
         ) : (
           <div className="table-scroll">
-            <table>
+            <table className="timesheet-grid" aria-label="Weekly project hours">
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Project</th>
-                  <th>Work description</th>
-                  <th>Hours</th>
-                  <th>
-                    <span className="sr-only">Actions</span>
-                  </th>
+                  <th scope="col">Project</th>
+                  {dates.map((date, index) => (
+                    <th scope="col" key={date}>
+                      <span>{shortDate(date)}</span>
+                      <small>
+                        {
+                          ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][
+                            index
+                          ]
+                        }
+                      </small>
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {sheet.entries.map((e) => (
-                  <tr key={e.id}>
-                    <td>{dateLabel(e.work_date)}</td>
-                    <td>
-                      <strong>{e.project_name}</strong>
-                    </td>
-                    <td>{e.description}</td>
-                    <td>
-                      <strong>{e.hours}</strong>
-                    </td>
-                    <td className="row-actions">
-                      {["DRAFT", "REJECTED"].includes(sheet.status) && (
-                        <>
+                {rows.map((project) => (
+                  <tr key={project.id}>
+                    <th scope="row">
+                      <strong>{project.name}</strong>
+                      {!assigned(project.id) && (
+                        <small>Historical project</small>
+                      )}
+                    </th>
+                    {dates.map((date) => {
+                      const hours = total(matching(project.id, date));
+                      return (
+                        <td key={date}>
                           <button
-                            className="icon-button"
-                            aria-label={`Edit ${e.description}`}
+                            className={`hours-cell ${hours ? "has-hours" : ""}`}
+                            aria-label={`${project.name} on ${shortDate(date)}: ${hours} hours`}
+                            disabled={
+                              busy ||
+                              (!hours && (!editable || !assigned(project.id)))
+                            }
                             onClick={() => {
-                              openEntry(e);
+                              if (!hours && editable && assigned(project.id))
+                                editCell(null, project.id, date);
+                              else
+                                setSelectedCell({
+                                  projectId: project.id,
+                                  workDate: date,
+                                });
                             }}
                           >
-                            <Pencil size={15} />
+                            {hours}
                           </button>
-                          <button
-                            className="icon-button danger"
-                            aria-label={`Delete ${e.description}`}
-                            disabled={busy}
-                            onClick={() =>
-                              void mutate(
-                                `/time-entries/${e.id}`,
-                                "DELETE",
-                                undefined,
-                                "Entry deleted",
-                              )
-                            }
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </>
-                      )}
-                    </td>
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr>
+                  <th scope="row">Daily total</th>
+                  {dates.map((date) => (
+                    <td key={date}>
+                      {total(
+                        entries.filter((entry) => entry.work_date === date),
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              </tfoot>
             </table>
           </div>
         )}
@@ -205,6 +259,72 @@ export function TimesheetView({
           </button>
         </div>
       </section>
+      {selectedCell && selectedProject && (
+        <Modal
+          title={`${selectedProject.name} · ${dateLabel(selectedCell.workDate)}`}
+          close={() => {
+            if (!busy) setSelectedCell(null);
+          }}
+        >
+          <div className="details">
+            <p>{total(cellEntries)} hours logged for this day.</p>
+            <div className="cell-entry-list">
+              {cellEntries.map((entry) => (
+                <div key={entry.id} className="cell-entry">
+                  <div>
+                    <strong>{entry.hours} hours</strong>
+                    <p>{entry.description}</p>
+                  </div>
+                  {editable && assigned(selectedProject.id) && (
+                    <div className="row-actions">
+                      <button
+                        className="icon-button"
+                        aria-label={`Edit ${entry.description}`}
+                        disabled={busy}
+                        onClick={() =>
+                          editCell(entry, entry.project_id, entry.work_date)
+                        }
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      <button
+                        className="icon-button danger"
+                        aria-label={`Delete ${entry.description}`}
+                        disabled={busy}
+                        onClick={() =>
+                          void mutate(
+                            `/time-entries/${entry.id}`,
+                            "DELETE",
+                            undefined,
+                            "Entry deleted",
+                          )
+                        }
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            {editable && assigned(selectedProject.id) && (
+              <button
+                className="primary"
+                disabled={busy}
+                onClick={() =>
+                  editCell(null, selectedProject.id, selectedCell.workDate)
+                }
+              >
+                <Plus size={16} />
+                Add entry
+              </button>
+            )}
+            {!editable && (
+              <p className="subtle">This timesheet is locked for review.</p>
+            )}
+          </div>
+        </Modal>
+      )}
       <div className="helper-note">
         <ShieldCheck size={17} />
         <p>

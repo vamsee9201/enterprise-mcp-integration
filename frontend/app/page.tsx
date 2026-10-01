@@ -123,6 +123,10 @@ export default function Portal() {
   const [modal, setModal] = useState<ModalKind | null>(null),
     [selected, setSelected] = useState<Item | null>(null),
     [editing, setEditing] = useState<Entry | null>(null);
+  const [entryDefaults, setEntryDefaults] = useState<{
+    project_id: string;
+    work_date: string;
+  } | null>(null);
   const [formError, setFormError] = useState(""),
     [mobile, setMobile] = useState(false);
   const version = useRef(0);
@@ -281,6 +285,7 @@ export default function Portal() {
     setSelected(item);
     setFormError("");
     setEditing(null);
+    setEntryDefaults(null);
   }
   async function mutate(
     path: string,
@@ -551,15 +556,20 @@ export default function Portal() {
           )}
           {view === "timesheet" ? (
             <TimesheetView
+              key={week}
               sheet={sheet}
               projects={projects}
               week={week}
               setWeek={setWeek}
               loading={loading}
               busy={busy}
-              openEntry={(entry) => {
+              openEntry={(entry, projectId, workDate) => {
                 open("entry");
                 setEditing(entry);
+                setEntryDefaults({
+                  project_id: projectId,
+                  work_date: workDate,
+                });
               }}
               mutate={mutate}
             />
@@ -590,6 +600,7 @@ export default function Portal() {
           modal={modal}
           view={view}
           editing={editing}
+          entryDefaults={entryDefaults}
           selected={selected}
           formError={formError}
           busy={busy}

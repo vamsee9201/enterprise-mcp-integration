@@ -29,16 +29,45 @@ test("employee logs, edits, submits and manager approves a weekly timesheet", as
 }) => {
   await login(page, "Dinesh Chugtai");
   await page.getByLabel("Timesheet week").fill("2026-09-28");
-  await page.getByRole("button", { name: "Log time", exact: true }).click();
+  await expect(
+    page.getByRole("table", { name: "Weekly project hours" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("rowheader", { name: "Compression Engine", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("rowheader", { name: "PiperNet", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", {
+      name: "Compression Engine on 09/30: 0 hours",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", {
+      name: "Compression Engine on 09/30: 0 hours",
+      exact: true,
+    })
+    .click();
+  await expect(page.getByLabel("Project", { exact: true })).toHaveValue(
+    "00000000-0000-4000-8000-000000000101",
+  );
+  await expect(page.getByLabel("Work date")).toHaveValue("2026-09-30");
   await page
     .getByLabel("Work description")
     .fill("Implemented shared business services");
   await page.getByRole("button", { name: "Save entry" }).click();
-  await expect(
-    page.getByRole("cell", {
-      name: "Implemented shared business services",
+  await page
+    .getByRole("button", {
+      name: "Compression Engine on 09/30: 7 hours",
       exact: true,
-    }),
+    })
+    .click();
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByText("Implemented shared business services", { exact: true }),
   ).toBeVisible();
   await page
     .getByRole("button", { name: "Edit Implemented shared business services" })
@@ -46,7 +75,10 @@ test("employee logs, edits, submits and manager approves a weekly timesheet", as
   await page.getByLabel("Hours", { exact: true }).fill("8");
   await page.getByRole("button", { name: "Save entry" }).click();
   await expect(
-    page.getByRole("cell", { name: "8", exact: true }),
+    page.getByRole("button", {
+      name: "Compression Engine on 09/30: 8 hours",
+      exact: true,
+    }),
   ).toBeVisible();
   await page.screenshot({
     path: "test-results/desktop-timesheet.png",
@@ -208,7 +240,12 @@ test("workspace picks up an external API change on its next refresh", async ({
 }) => {
   await login(page, "Erlich Bachman");
   await page.getByLabel("Timesheet week").fill("2026-10-05");
-  await expect(page.getByText("Your week starts here")).toBeVisible();
+  await expect(
+    page.getByRole("button", {
+      name: "Compression Engine on 10/06: 0 hours",
+      exact: true,
+    }),
+  ).toBeVisible();
   const identity = await page.request.get("/api/v1/auth/me");
   const result = await page.request.post("/api/v1/time-entries", {
     headers: {
@@ -224,7 +261,10 @@ test("workspace picks up an external API change on its next refresh", async ({
   });
   expect(result.ok()).toBeTruthy();
   await expect(
-    page.getByRole("cell", { name: "External service update", exact: true }),
+    page.getByRole("button", {
+      name: "Compression Engine on 10/06: 3 hours",
+      exact: true,
+    }),
   ).toBeVisible({ timeout: 15000 });
 });
 
@@ -242,4 +282,93 @@ test("small viewport keeps navigation and forms usable", async ({ page }) => {
     fullPage: true,
     animations: "disabled",
   });
+});
+
+test("weekly grid aggregates entries, deletes individual entries, and resets empty weeks to zero", async ({
+  page,
+}) => {
+  await login(page, "Jared Dunn");
+  await page.getByLabel("Timesheet week").fill("2026-11-02");
+  await expect(page.getByRole("columnheader")).toHaveCount(8);
+  for (const date of [
+    "11/02",
+    "11/03",
+    "11/04",
+    "11/05",
+    "11/06",
+    "11/07",
+    "11/08",
+  ]) {
+    await expect(
+      page.getByRole("columnheader").filter({ hasText: date }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", {
+        name: `Compression Engine on ${date}: 0 hours`,
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", {
+        name: `PiperNet on ${date}: 0 hours`,
+        exact: true,
+      }),
+    ).toBeVisible();
+  }
+  await expect(
+    page.getByRole("button", { name: "Submit week" }),
+  ).toBeDisabled();
+  await page
+    .getByRole("button", { name: "PiperNet on 11/04: 0 hours", exact: true })
+    .click();
+  await expect(page.getByLabel("Project", { exact: true })).toHaveValue(
+    "00000000-0000-4000-8000-000000000102",
+  );
+  await page.getByLabel("Hours", { exact: true }).fill("1.25");
+  await page.getByLabel("Work description").fill("Launch preparation");
+  await page.getByRole("button", { name: "Save entry" }).click();
+  await page
+    .getByRole("button", { name: "PiperNet on 11/04: 1.25 hours", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Add entry", exact: true }).click();
+  await expect(page.getByLabel("Work date")).toHaveValue("2026-11-04");
+  await page.getByLabel("Hours", { exact: true }).fill("0.75");
+  await page.getByLabel("Work description").fill("Launch follow-up");
+  await page.getByRole("button", { name: "Save entry" }).click();
+  await page
+    .getByRole("button", { name: "PiperNet on 11/04: 2 hours", exact: true })
+    .click();
+  await expect(
+    page.getByRole("dialog").getByText("Launch preparation", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("dialog").getByText("Launch follow-up", { exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Delete Launch follow-up", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Close dialog" }).click();
+  await expect(
+    page.getByRole("button", {
+      name: "PiperNet on 11/04: 1.25 hours",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Next week" }).click();
+  await expect(
+    page.getByRole("button", {
+      name: "PiperNet on 11/11: 0 hours",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Submit week" }),
+  ).toBeDisabled();
+  await page.getByRole("button", { name: "Previous week" }).click();
+  await expect(
+    page.getByRole("button", {
+      name: "PiperNet on 11/04: 1.25 hours",
+      exact: true,
+    }),
+  ).toBeVisible();
 });

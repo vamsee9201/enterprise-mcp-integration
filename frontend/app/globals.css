@@ -1039,3 +1039,89 @@ tbody tr:hover {
     gap: 12px;
   }
 }
+
+.timesheet-grid {
+  min-width: 760px;
+  table-layout: fixed;
+}
+.timesheet-grid th:first-child {
+  width: 220px;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: #fafbf8;
+}
+.timesheet-grid tbody th {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+  border-top: 1px solid #eef1ec;
+  background: white;
+}
+.timesheet-grid th:not(:first-child),
+.timesheet-grid td {
+  text-align: center;
+  padding: 14px 8px;
+}
+.timesheet-grid th small {
+  display: block;
+  margin-top: 5px;
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: normal;
+}
+.timesheet-grid thead th span {
+  font-size: 12px;
+  color: var(--ink);
+}
+.hours-cell {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #8a968e;
+  background: #f8faf6;
+  font-size: 13px;
+}
+.hours-cell:hover:not(:disabled) {
+  background: #e8f0e5;
+  border-color: #b7d0c1;
+}
+.hours-cell.has-hours {
+  background: #e5f0e6;
+  color: var(--green);
+  font-weight: 600;
+}
+.hours-cell:disabled {
+  opacity: 1;
+  cursor: default;
+}
+.timesheet-grid tfoot th,
+.timesheet-grid tfoot td {
+  border-top: 1px solid var(--border);
+  background: #fafbf8;
+  font-weight: 600;
+  font-size: 12px;
+}
+.cell-entry-list {
+  margin-bottom: 20px;
+}
+.cell-entry {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  border-top: 1px solid var(--border);
+  padding: 16px 0;
+}
+.cell-entry p {
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .timesheet-grid th:first-child {
+    width: 165px;
+  }
+  .timesheet-grid {
+    min-width: 690px;
+  }
+}

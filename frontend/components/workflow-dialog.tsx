@@ -25,6 +25,7 @@ type Props = {
   modal: ModalKind;
   view: View;
   editing: Entry | null;
+  entryDefaults: { project_id: string; work_date: string } | null;
   selected: Item | null;
   formError: string;
   busy: boolean;
@@ -47,6 +48,7 @@ export function WorkflowDialog({
   modal,
   view,
   editing,
+  entryDefaults,
   selected,
   formError,
   busy,
@@ -96,7 +98,11 @@ export function WorkflowDialog({
           <Field label="Project">
             <select
               name="project_id"
-              defaultValue={editing?.project_id || projects[0]?.id}
+              defaultValue={
+                editing?.project_id ||
+                entryDefaults?.project_id ||
+                projects[0]?.id
+              }
               required
             >
               {projects.map((p) => (
@@ -115,6 +121,7 @@ export function WorkflowDialog({
                 max={shiftDate(week, 6)}
                 defaultValue={
                   editing?.work_date ||
+                  entryDefaults?.work_date ||
                   (weekOf(today()) === week ? today() : week)
                 }
                 required
