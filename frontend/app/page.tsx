@@ -18,7 +18,7 @@ import {
   ListTodo,
   LogOut,
   Menu,
-  Orbit,
+  Sprout,
   Plus,
   Plug,
   RefreshCw,
@@ -364,9 +364,9 @@ export default function Portal() {
     return (
       <main className="login">
         <div className="login-brand">
-          <Orbit size={32} />
+          <Sprout size={32} />
           <strong>
-            orbit<span>OPERATIONS</span>
+            pied piper<span>OPERATIONS</span>
           </strong>
         </div>
         <div className="login-card">
@@ -416,9 +416,9 @@ export default function Portal() {
     <div className="shell">
       <aside className={`sidebar ${mobile ? "mobile-open" : ""}`}>
         <div className="brand">
-          <Orbit size={30} />
+          <Sprout size={30} />
           <strong>
-            orbit<span>OPERATIONS</span>
+            pied piper<span>OPERATIONS</span>
           </strong>
           <button
             className="mobile-close icon-button"
@@ -579,7 +579,7 @@ export default function Portal() {
             />
           )}
           <footer className="content-footer">
-            <span>Orbit Operations</span>
+            <span>Pied Piper Operations</span>
             <span>Shared workflows for people & agents</span>
           </footer>
         </main>

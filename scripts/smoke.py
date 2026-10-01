@@ -7,7 +7,7 @@ with httpx.Client(
 ) as client:
     accounts = client.get("/api/v1/auth/demo-accounts")
     accounts.raise_for_status()
-    user = next(user for user in accounts.json() if user["name"] == "Vamsee Krishna")
+    user = next(user for user in accounts.json() if user["name"] == "Dinesh Chugtai")
     response = client.post("/api/v1/auth/demo-login", json={"user_id": user["id"]})
     response.raise_for_status()
     client.headers["X-CSRF-Token"] = response.json()["csrf_token"]

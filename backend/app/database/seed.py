@@ -15,106 +15,160 @@ def uid(n):
 USERS = [
     dict(
         id=uid(1),
-        name="Maya Chen",
-        email="maya@orbit.example",
+        name="Bertram Gilfoyle",
+        email="gilfoyle@piedpiper.example",
         role="MANAGER",
         department="Engineering",
         manager_id=None,
     ),
     dict(
         id=uid(2),
-        name="Vamsee Krishna",
-        email="vamsee@orbit.example",
+        name="Dinesh Chugtai",
+        email="dinesh@piedpiper.example",
         role="EMPLOYEE",
         department="Engineering",
         manager_id=uid(1),
     ),
     dict(
         id=uid(3),
-        name="Alex Morgan",
-        email="alex@orbit.example",
+        name="Jared Dunn",
+        email="jared@piedpiper.example",
         role="EMPLOYEE",
-        department="Engineering",
+        department="Operations",
         manager_id=uid(1),
     ),
     dict(
         id=uid(4),
-        name="Jordan Lee",
-        email="jordan@orbit.example",
+        name="Monica Hall",
+        email="monica@piedpiper.example",
         role="MANAGER",
-        department="Operations",
+        department="Business Operations",
         manager_id=None,
     ),
     dict(
         id=uid(5),
-        name="Sam Rivera",
-        email="sam@orbit.example",
+        name="Erlich Bachman",
+        email="erlich@piedpiper.example",
         role="EMPLOYEE",
-        department="Operations",
+        department="Business Operations",
         manager_id=uid(4),
     ),
     dict(
         id=uid(6),
-        name="Avery Patel",
-        email="avery@orbit.example",
+        name="Richard Hendricks",
+        email="richard@piedpiper.example",
         role="ADMIN",
-        department="IT Administration",
+        department="Leadership",
         manager_id=None,
     ),
 ]
+
+
+PROJECTS = [
+    (
+        101,
+        "Compression Engine",
+        "Develop and benchmark Pied Piper’s middle-out compression engine.",
+    ),
+    (102, "PiperNet", "Build and harden Pied Piper’s decentralized network platform."),
+]
+
+
+def refresh_sample(record, fields):
+    """Upgrade untouched old seed text without replacing user edits or workflow state."""
+    for key, (legacy, themed) in fields.items():
+        if getattr(record, key) == legacy:
+            setattr(record, key, themed)
 
 
 def seed():
     today = datetime.now(ZoneInfo(settings.app_timezone)).date()
     with SessionLocal.begin() as db:
         for data in USERS:
-            if not db.get(User, data["id"]):
+            user = db.get(User, data["id"])
+            if user is None:
                 db.add(User(**data))
-                db.flush()
-        for n, name, description in [
-            (101, "Project Apollo", "Connect enterprise workflows to AI agents through MCP."),
-            (102, "Platform Modernization", "Improve the internal operations platform."),
-        ]:
-            if not db.get(Project, uid(n)):
+            else:
+                for field in ("name", "email", "department"):
+                    setattr(user, field, data[field])
+            db.flush()
+        for n, name, description in PROJECTS:
+            project = db.get(Project, uid(n))
+            if project is None:
                 db.add(Project(id=uid(n), name=name, description=description))
-                db.flush()
+            else:
+                project.name, project.description = name, description
+            db.flush()
             for data in USERS:
                 if not db.get(Membership, (uid(n), data["id"])):
                     db.add(Membership(project_id=uid(n), user_id=data["id"]))
-        if not db.get(Task, uid(201)):
-            db.add(
-                Task(
-                    id=uid(201),
-                    title="Integrate timesheet MCP tools",
-                    description="Connect the shared services and verify audit source attribution.",
-                    project_id=uid(101),
-                    creator_id=uid(1),
-                    assignee_id=uid(2),
-                    due_date=today + timedelta(days=3),
-                    status="IN_PROGRESS",
+
+        samples = [
+            (
+                201,
+                "Benchmark middle-out compression",
+                "Compare compression ratios and latency against the baseline dataset.",
+                2,
+                3,
+                "IN_PROGRESS",
+                "Integrate timesheet MCP tools",
+                "Connect the shared services and verify audit source attribution.",
+            ),
+            (
+                202,
+                "Prepare PiperNet launch checklist",
+                "Coordinate the rollout checklist, team handoffs and launch readiness.",
+                3,
+                5,
+                "TODO",
+                "Review permission boundaries",
+                "Check employee and manager access across workflows.",
+            ),
+        ]
+        for n, title, description, assignee, days, status, old_title, old_description in samples:
+            task = db.get(Task, uid(n))
+            if task is None:
+                db.add(
+                    Task(
+                        id=uid(n),
+                        title=title,
+                        description=description,
+                        project_id=uid(101 if n == 201 else 102),
+                        creator_id=uid(1),
+                        assignee_id=uid(assignee),
+                        due_date=today + timedelta(days=days),
+                        status=status,
+                    )
                 )
-            )
-            db.add(
-                Task(
-                    id=uid(202),
-                    title="Review permission boundaries",
-                    description="Check employee and manager access across workflows.",
-                    project_id=uid(101),
-                    creator_id=uid(1),
-                    assignee_id=uid(3),
-                    due_date=today + timedelta(days=5),
-                    status="TODO",
+            else:
+                refresh_sample(
+                    task,
+                    {"title": (old_title, title), "description": (old_description, description)},
                 )
-            )
-        if not db.get(Ticket, uid(301)):
+
+        ticket = db.get(Ticket, uid(301))
+        title = "PiperNet staging VPN disconnects"
+        description = "The staging VPN disconnects during compression benchmark uploads. Please investigate network access."
+        if ticket is None:
             db.add(
                 Ticket(
                     id=uid(301),
-                    title="VPN connection drops intermittently",
-                    description="Connection drops when switching networks. Please investigate.",
+                    title=title,
+                    description=description,
                     creator_id=uid(2),
-                    assignee_id=uid(6),
+                    assignee_id=uid(1),
                     priority="HIGH",
                     status="IN_PROGRESS",
                 )
+            )
+        else:
+            refresh_sample(
+                ticket,
+                {
+                    "title": ("VPN connection drops intermittently", title),
+                    "description": (
+                        "Connection drops when switching networks. Please investigate.",
+                        description,
+                    ),
+                },
             )

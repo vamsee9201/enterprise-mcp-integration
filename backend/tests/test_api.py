@@ -10,7 +10,7 @@ def test_session_csrf_origin_and_logout(client, login, database):
     login()
     cookies = str(client.cookies)
     assert "portal_session" in cookies
-    assert client.get("/api/v1/auth/me").json()["user"]["name"] == "Vamsee Krishna"
+    assert client.get("/api/v1/auth/me").json()["user"]["name"] == "Dinesh Chugtai"
     body = {"title": "VPN issue"}
     assert (
         client.post("/api/v1/tickets", json=body, headers={"X-CSRF-Token": "wrong"}).status_code

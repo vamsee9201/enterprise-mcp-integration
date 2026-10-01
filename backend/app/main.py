@@ -6,7 +6,7 @@ from backend.app.api.routes import router
 from backend.app.auth.context import ServiceError
 from backend.app.database.connection import SessionLocal
 
-app = FastAPI(title="Orbit Operations", version="1.0.0")
+app = FastAPI(title="Pied Piper Operations", version="1.0.0")
 app.include_router(router)
 
 

@@ -27,7 +27,7 @@ async function navigate(page: Page, label: string) {
 test("employee logs, edits, submits and manager approves a weekly timesheet", async ({
   page,
 }) => {
-  await login(page, "Vamsee Krishna");
+  await login(page, "Dinesh Chugtai");
   await page.getByLabel("Timesheet week").fill("2026-09-28");
   await page.getByRole("button", { name: "Log time", exact: true }).click();
   await page
@@ -57,17 +57,17 @@ test("employee logs, edits, submits and manager approves a weekly timesheet", as
   await expect(
     page.getByRole("button", { name: "Log time", exact: true }),
   ).toBeDisabled();
-  await switchAccount(page, "Maya Chen");
+  await switchAccount(page, "Bertram Gilfoyle");
   await navigate(page, "Manager Review");
-  await page.getByRole("button", { name: "View Vamsee Krishna" }).click();
+  await page.getByRole("button", { name: "View Dinesh Chugtai" }).click();
   await expect(
     page.getByRole("dialog").getByText("Implemented shared business services"),
   ).toBeVisible();
   await page.getByRole("button", { name: "Approve", exact: true }).click();
   await expect(page.getByText("You’re all caught up")).toBeVisible();
-  await switchAccount(page, "Vamsee Krishna");
+  await switchAccount(page, "Dinesh Chugtai");
   await page.getByLabel("Timesheet week").fill("2026-09-28");
-  await expect(page.getByText("Reviewed by Maya Chen")).toBeVisible();
+  await expect(page.getByText("Reviewed by Bertram Gilfoyle")).toBeVisible();
   await navigate(page, "Activity");
   await expect(
     page.getByRole("cell", { name: "submit_timesheet", exact: true }),
@@ -77,7 +77,7 @@ test("employee logs, edits, submits and manager approves a weekly timesheet", as
 test("manager assigns task and employee completes it; directory is searchable", async ({
   page,
 }) => {
-  await login(page, "Maya Chen");
+  await login(page, "Bertram Gilfoyle");
   await navigate(page, "Tasks");
   await page.getByRole("button", { name: "New task", exact: true }).click();
   await page
@@ -85,7 +85,7 @@ test("manager assigns task and employee completes it; directory is searchable", 
     .fill("Prepare portfolio walkthrough");
   await page
     .getByLabel("Assignee", { exact: true })
-    .selectOption({ label: "Alex Morgan" });
+    .selectOption({ label: "Jared Dunn" });
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await expect(
     page.getByRole("cell", {
@@ -93,7 +93,7 @@ test("manager assigns task and employee completes it; directory is searchable", 
       exact: true,
     }),
   ).toBeVisible();
-  await switchAccount(page, "Alex Morgan");
+  await switchAccount(page, "Jared Dunn");
   await navigate(page, "Tasks");
   await expect(
     page.getByRole("button", { name: "New task", exact: true }),
@@ -109,9 +109,9 @@ test("manager assigns task and employee completes it; directory is searchable", 
       .getByText("DONE", { exact: true }),
   ).toBeVisible();
   await navigate(page, "Employee Directory");
-  await page.getByLabel("Search records").fill("Vamsee");
+  await page.getByLabel("Search records").fill("Dinesh");
   await expect(
-    page.getByRole("cell", { name: "Maya Chen", exact: true }),
+    page.getByRole("cell", { name: "Bertram Gilfoyle", exact: true }),
   ).toBeVisible();
   await navigate(page, "Manager Review");
   await expect(page.getByText("Manager access required")).toBeVisible();
@@ -120,7 +120,7 @@ test("manager assigns task and employee completes it; directory is searchable", 
 test("leave overlap is explained and manager can reject with feedback", async ({
   page,
 }) => {
-  await login(page, "Alex Morgan");
+  await login(page, "Jared Dunn");
   await navigate(page, "Leave");
   await page
     .getByRole("button", { name: "Request leave", exact: true })
@@ -142,17 +142,17 @@ test("leave overlap is explained and manager can reject with feedback", async ({
     "overlap",
   );
   await page.getByRole("button", { name: "Close dialog" }).click();
-  await switchAccount(page, "Maya Chen");
+  await switchAccount(page, "Bertram Gilfoyle");
   await navigate(page, "Manager Review");
-  await page.getByRole("button", { name: "View Alex Morgan" }).click();
+  await page.getByRole("button", { name: "View Jared Dunn" }).click();
   await page
     .getByLabel("Reason for rejection")
     .fill("Please coordinate team coverage");
   await page.getByRole("button", { name: "Reject request" }).click();
   await expect(page.getByText("You’re all caught up")).toBeVisible();
-  await switchAccount(page, "Alex Morgan");
+  await switchAccount(page, "Jared Dunn");
   await navigate(page, "Leave");
-  await page.getByRole("button", { name: "View Alex Morgan" }).click();
+  await page.getByRole("button", { name: "View Jared Dunn" }).click();
   await expect(
     page.getByText("Feedback: Please coordinate team coverage"),
   ).toBeVisible();
@@ -161,7 +161,7 @@ test("leave overlap is explained and manager can reject with feedback", async ({
 test("ticket creation, assignment, priority and resolution", async ({
   page,
 }) => {
-  await login(page, "Sam Rivera");
+  await login(page, "Erlich Bachman");
   await navigate(page, "Support Tickets");
   await page.getByRole("button", { name: "New ticket" }).click();
   await page
@@ -175,14 +175,14 @@ test("ticket creation, assignment, priority and resolution", async ({
       exact: true,
     }),
   ).toBeVisible();
-  await switchAccount(page, "Maya Chen");
+  await switchAccount(page, "Bertram Gilfoyle");
   await navigate(page, "Support Tickets");
   await page
     .getByRole("button", { name: "View Laptop cannot connect to VPN" })
     .click();
   await page
     .getByLabel("Assign ticket", { exact: true })
-    .selectOption({ label: "Avery Patel" });
+    .selectOption({ label: "Richard Hendricks" });
   await page
     .getByRole("button", { name: "View Laptop cannot connect to VPN" })
     .click();
@@ -206,7 +206,7 @@ test("ticket creation, assignment, priority and resolution", async ({
 test("workspace picks up an external API change on its next refresh", async ({
   page,
 }) => {
-  await login(page, "Sam Rivera");
+  await login(page, "Erlich Bachman");
   await page.getByLabel("Timesheet week").fill("2026-10-05");
   await expect(page.getByText("Your week starts here")).toBeVisible();
   const identity = await page.request.get("/api/v1/auth/me");
@@ -230,7 +230,7 @@ test("workspace picks up an external API change on its next refresh", async ({
 
 test("small viewport keeps navigation and forms usable", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await login(page, "Vamsee Krishna");
+  await login(page, "Dinesh Chugtai");
   await page.getByRole("button", { name: "Open navigation" }).click();
   await navigate(page, "Employee Directory");
   await expect(page.getByLabel("Search records")).toBeVisible();

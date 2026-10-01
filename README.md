@@ -1,6 +1,6 @@
-# Orbit Operations
+# Pied Piper Operations
 
-A lightweight enterprise portal for everyday work: timesheets, tasks, leave, support tickets, an employee directory, manager review, and activity logs.
+A Silicon Valley–themed Pied Piper enterprise portal for everyday work: timesheets, tasks, leave, support tickets, an employee directory, manager review, and activity logs.
 
 This release implements the **enterprise web application only**. MCP integration is intentionally deferred. REST endpoints already call shared business services so a future MCP adapter can reuse the same permissions, validation, workflows, and transactions.
 
@@ -14,14 +14,16 @@ docker compose up --build -d
 
 Open **http://localhost:3000**. API documentation is at **http://localhost:8000/docs**. The initialization container applies Alembic migrations and seeds demo records before starting the app.
 
-| Account        | Role     | Team                          |
-| -------------- | -------- | ----------------------------- |
-| Vamsee Krishna | Employee | Engineering; reports to Maya  |
-| Alex Morgan    | Employee | Engineering; reports to Maya  |
-| Maya Chen      | Manager  | Engineering                   |
-| Sam Rivera     | Employee | Operations; reports to Jordan |
-| Jordan Lee     | Manager  | Operations                    |
-| Avery Patel    | Admin    | All records                   |
+| Account           | Role     | Team                                   |
+| ----------------- | -------- | -------------------------------------- |
+| Dinesh Chugtai    | Employee | Engineering; reports to Gilfoyle       |
+| Jared Dunn        | Employee | Operations; reports to Gilfoyle        |
+| Bertram Gilfoyle  | Manager  | Engineering                            |
+| Erlich Bachman    | Employee | Business Operations; reports to Monica |
+| Monica Hall       | Manager  | Business Operations                    |
+| Richard Hendricks | Admin    | Leadership; all records                |
+
+The reporting relationships are chosen for the permission demo rather than reproducing the show. The seven modules and workflow rules are unchanged.
 
 Select a demo account at login. Use the switch-account button in the header to change identities.
 
@@ -32,7 +34,7 @@ docker compose down --volumes
 docker compose up --build -d
 ```
 
-The reset command deletes this project's PostgreSQL volume. Normal startup and the seed command preserve existing workflows.
+The reset command deletes this project's PostgreSQL volume. Normal startup and the seed command preserve existing workflows. Seeding refreshes demo names, emails, departments and project labels in place, so existing timesheets, requests, assignments, sessions and audit history stay attached to the same IDs. Edited sample tasks and tickets are preserved.
 
 ## Architecture
 
@@ -142,14 +144,14 @@ Tests cover the employee-to-manager timesheet lifecycle, task assignment/complet
 
 ## Demo walkthrough
 
-1. Sign in as Vamsee, log seven hours on Project Apollo and describe the work.
+1. Sign in as Dinesh, log seven hours on Compression Engine and describe the work.
 2. Edit the draft entry, then submit the week. The sheet becomes locked.
-3. Switch to Maya, open Manager Review, inspect entries, and approve.
-4. Switch back to Vamsee to see APPROVED and the reviewer name.
-5. Create leave, then review it as Maya; try an overlapping request to see validation.
-6. As Maya, assign a task to Alex. As Alex, mark it DONE.
+3. Switch to Gilfoyle, open Manager Review, inspect entries, and approve.
+4. Switch back to Dinesh to see APPROVED and the reviewer name.
+5. Create leave, then review it as Gilfoyle; try an overlapping request to see validation.
+6. As Gilfoyle, assign a task to Jared. As Jared, mark it DONE.
 7. Create a support ticket as an employee; assign and resolve it as a manager.
-8. Search the directory for Vamsee and inspect his manager. Open Activity to see actions and outcomes.
+8. Search the directory for Dinesh and inspect his manager. Open Activity to see actions and outcomes.
 
 ## Deferred
 

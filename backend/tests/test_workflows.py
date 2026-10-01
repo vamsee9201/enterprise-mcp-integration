@@ -41,7 +41,7 @@ def test_full_timesheet_flow(call, database):
     call(2, "submit_timesheet", week=DAY)
     assert call(1, "list_pending_approvals")["total"] == 1
     approved = call(1, "approve_timesheet", timesheet_id=UUID(sheet["id"]))
-    assert approved["status"] == "APPROVED" and approved["reviewer_name"] == "Maya Chen"
+    assert approved["status"] == "APPROVED" and approved["reviewer_name"] == "Bertram Gilfoyle"
     with database() as db:
         assert (
             db.scalar(
@@ -233,11 +233,11 @@ def test_ticket_ownership_assignment_and_transitions(call):
 
 
 def test_directory_filters_and_pagination(call):
-    page = call(2, "search_employees", query="Maya", limit=1)
+    page = call(2, "search_employees", query="Gilfoyle", limit=1)
     assert page["total"] == 3 and len(page["items"]) == 1
     page = call(2, "search_employees", department="Engineering", manager_id=uid(1))
-    assert {u["name"] for u in page["items"]} == {"Vamsee Krishna", "Alex Morgan"}
-    assert call(2, "get_employee", employee_id=uid(2))["manager_name"] == "Maya Chen"
+    assert {u["name"] for u in page["items"]} == {"Dinesh Chugtai"}
+    assert call(2, "get_employee", employee_id=uid(2))["manager_name"] == "Bertram Gilfoyle"
     with pytest.raises(ServiceError):
         call(2, "search_employees", limit=101)
 
