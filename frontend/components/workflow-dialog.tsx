@@ -67,6 +67,7 @@ export function WorkflowDialog({
 }: Props) {
   return (
     <Modal
+      busy={busy}
       title={
         modal === "entry"
           ? editing
@@ -431,7 +432,9 @@ export function WorkflowDialog({
                           );
                       }}
                     >
-                      <option value="">Unassigned</option>
+                      <option value="" disabled>
+                        Unassigned
+                      </option>
                       {people.map((p) => (
                         <option key={p.id} value={p.id}>
                           {p.name}

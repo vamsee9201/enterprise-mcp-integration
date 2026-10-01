@@ -245,9 +245,11 @@ export function RecordsView({
                 ).map((h) => (
                   <th key={h}>{h}</th>
                 ))}
-                <th>
-                  <span className="sr-only">Details</span>
-                </th>
+                {view !== "directory" && (
+                  <th>
+                    <span className="sr-only">Details</span>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -360,8 +362,8 @@ export function RecordsView({
                       </td>
                     </>
                   )}
-                  <td>
-                    {view !== "directory" && (
+                  {view !== "directory" && (
+                    <td>
                       <button
                         className="text-button"
                         onClick={() => void details(item)}
@@ -370,8 +372,8 @@ export function RecordsView({
                         {view === "review" ? "Review" : "View"}
                         <ChevronRight size={14} />
                       </button>
-                    )}
-                  </td>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -380,8 +382,15 @@ export function RecordsView({
       )}
       <div className="panel-footer">
         <span>
-          {page.total} {view === "directory" ? "people" : "records"} · Updates
-          every 10 seconds
+          {page.total}{" "}
+          {view === "directory"
+            ? page.total === 1
+              ? "person"
+              : "people"
+            : page.total === 1
+              ? "record"
+              : "records"}{" "}
+          · Updates every 10 seconds
         </span>
         <div className="pagination">
           <button

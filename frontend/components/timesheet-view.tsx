@@ -262,6 +262,7 @@ export function TimesheetView({
       {selectedCell && selectedProject && (
         <Modal
           title={`${selectedProject.name} · ${dateLabel(selectedCell.workDate)}`}
+          busy={busy}
           close={() => {
             if (!busy) setSelectedCell(null);
           }}

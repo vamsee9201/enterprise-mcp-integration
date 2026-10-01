@@ -400,3 +400,156 @@ test("logs and submits hours without a description", async ({ page }) => {
   await page.getByRole("button", { name: "Submit week" }).click();
   await expect(page.getByText("Waiting for manager review")).toBeVisible();
 });
+
+test("rejected timesheet can be corrected, resubmitted and approved", async ({
+  page,
+}) => {
+  await login(page, "Erlich Bachman");
+  await page.getByLabel("Timesheet week").fill("2027-03-01");
+  await page
+    .getByRole("button", { name: "PiperNet on 03/02: 0 hours", exact: true })
+    .click();
+  await page.getByLabel("Hours", { exact: true }).fill("8.25");
+  await page.getByLabel("Work description").fill("QA correction lifecycle");
+  await page.getByRole("button", { name: "Save entry" }).click();
+  await page
+    .getByRole("button", {
+      name: "Compression Engine on 03/02: 0 hours",
+      exact: true,
+    })
+    .click();
+  await page.getByLabel("Hours", { exact: true }).fill("16");
+  await page.getByRole("button", { name: "Save entry" }).click();
+  await expect(page.getByRole("dialog").getByRole("alert")).toContainText(
+    "Daily hours cannot exceed 24",
+  );
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.getByRole("button", { name: "Submit week" }).click();
+  await expect(page.getByText("Waiting for manager review")).toBeVisible();
+  await switchAccount(page, "Monica Hall");
+  await expect(page.getByText("Week submitted", { exact: true })).toHaveCount(
+    0,
+  );
+  await navigate(page, "Manager Review");
+  await page.getByRole("button", { name: "View Erlich Bachman" }).click();
+  await page.getByLabel("Reason for rejection").fill("QA: correct the hours");
+  await page.getByRole("button", { name: "Reject request" }).click();
+  await expect(page.getByText("You’re all caught up")).toBeVisible();
+  await switchAccount(page, "Erlich Bachman");
+  await page.getByLabel("Timesheet week").fill("2027-03-01");
+  await expect(
+    page.getByText("Manager feedback: QA: correct the hours"),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "PiperNet on 03/02: 8.25 hours", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Edit QA correction lifecycle", exact: true })
+    .click();
+  await page.getByLabel("Hours", { exact: true }).fill("7.5");
+  await page.getByRole("button", { name: "Save entry" }).click();
+  await expect(page.getByText("DRAFT", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Manager feedback: QA: correct the hours"),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Submit week" }).click();
+  await expect(page.getByText("Waiting for manager review")).toBeVisible();
+  await switchAccount(page, "Monica Hall");
+  await navigate(page, "Manager Review");
+  await page.getByRole("button", { name: "View Erlich Bachman" }).click();
+  await page.getByRole("button", { name: "Approve", exact: true }).click();
+  await expect(page.getByText("You’re all caught up")).toBeVisible();
+  await switchAccount(page, "Erlich Bachman");
+  await page.getByLabel("Timesheet week").fill("2027-03-01");
+  await expect(page.getByText("Reviewed by Monica Hall")).toBeVisible();
+  await page
+    .getByRole("button", { name: "PiperNet on 03/02: 7.5 hours", exact: true })
+    .click();
+  await expect(
+    page.getByText("This timesheet is locked for review."),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Add entry", exact: true }),
+  ).toHaveCount(0);
+});
+
+test("closed ticket can reopen and an assigned ticket has no ineffective empty assignment", async ({
+  page,
+}) => {
+  await login(page, "Richard Hendricks");
+  await navigate(page, "Support Tickets");
+  await page.getByRole("button", { name: "New ticket", exact: true }).click();
+  await page.getByLabel("Title", { exact: true }).fill("QA ticket reopening");
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await page
+    .getByRole("button", { name: "View QA ticket reopening", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("Assign ticket").locator('option[value=""]'),
+  ).toBeDisabled();
+  await page.getByLabel("Assign ticket").selectOption({ label: "Jared Dunn" });
+  await expect(
+    page
+      .getByRole("row")
+      .filter({ hasText: "QA ticket reopening" })
+      .getByText("Jared Dunn", { exact: true }),
+  ).toBeVisible();
+  for (const status of ["IN_PROGRESS", "RESOLVED", "CLOSED", "OPEN"]) {
+    await page
+      .getByRole("button", { name: "View QA ticket reopening", exact: true })
+      .click();
+    await page.getByLabel("Move ticket to").selectOption(status);
+    await expect(
+      page
+        .getByRole("row")
+        .filter({ hasText: "QA ticket reopening" })
+        .getByText(status.replaceAll("_", " "), { exact: true }),
+    ).toBeVisible();
+  }
+  await navigate(page, "Employee Directory");
+  await page.getByLabel("Search records").fill("Richard");
+  await expect(
+    page.getByText("1 person · Updates every 10 seconds"),
+  ).toBeVisible();
+  await expect(page.getByRole("columnheader")).toHaveCount(4);
+});
+
+test("shared browser sessions synchronize account switches and close stale forms", async ({
+  page,
+  context,
+}) => {
+  await login(page, "Dinesh Chugtai");
+  await navigate(page, "Support Tickets");
+  await page.getByRole("button", { name: "New ticket", exact: true }).click();
+  await page
+    .getByLabel("Title", { exact: true })
+    .fill("This stale form must not be submitted");
+  const other = await context.newPage();
+  await other.goto("/");
+  await expect(
+    other.getByRole("button", { name: "Switch account" }),
+  ).toBeVisible();
+  await switchAccount(other, "Monica Hall");
+  await expect(
+    page.getByRole("heading", { name: "My Timesheet", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(
+    page.locator(".topbar").getByText("Monica Hall", { exact: true }),
+  ).toBeVisible();
+  await navigate(page, "Support Tickets");
+  await expect(
+    page.getByRole("button", {
+      name: "View This stale form must not be submitted",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await other.getByRole("button", { name: "Switch account" }).click();
+  await expect(
+    page.getByRole("button", {
+      name: "Sign in as Dinesh Chugtai",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await other.close();
+});

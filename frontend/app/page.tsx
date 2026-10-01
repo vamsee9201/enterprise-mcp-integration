@@ -133,6 +133,26 @@ export default function Portal() {
   const manager = user?.role !== "EMPLOYEE";
   const active = navigation.find((n) => n.id === view)!;
 
+  const clearWorkspace = useCallback(() => {
+    ++version.current;
+    setNotice("");
+    setError("");
+    setFormError("");
+    setSelected(null);
+    setEditing(null);
+    setEntryDefaults(null);
+    setSheet(null);
+    setProjects([]);
+    setPeople([]);
+    setPage({ items: [], total: 0, limit: 50, offset: 0 });
+    setView("timesheet");
+    setFilters({});
+    setOffset(0);
+    setModal(null);
+    setMobile(false);
+    setLoading(false);
+  }, []);
+
   useEffect(() => {
     async function init() {
       try {
@@ -176,11 +196,21 @@ export default function Portal() {
   }, [user]);
 
   const load = useCallback(
-    async (showLoading = false) => {
-      if (!user || (view === "review" && user.role === "EMPLOYEE")) return;
+    async (showLoading = false, reconcileSession = false) => {
+      if (!user && !reconcileSession) return;
       const v = ++version.current;
       if (showLoading) setLoading(true);
       try {
+        // Cookies are shared across tabs. Reconcile identity before loading records.
+        const auth = await api<{ user: User; csrf_token: string }>("/auth/me");
+        if (v !== version.current) return;
+        setCsrf(auth.csrf_token);
+        if (!user || auth.user.id !== user.id || auth.user.role !== user.role) {
+          clearWorkspace();
+          setUser(auth.user);
+          return;
+        }
+        if (view === "review" && user.role === "EMPLOYEE") return;
         const query = new URLSearchParams(
           Object.entries(filters).filter(([, v]) => v),
         );
@@ -198,6 +228,7 @@ export default function Portal() {
         if (v === version.current) {
           setError((e as Error).message);
           if (e instanceof ApiError && e.status === 401) {
+            clearWorkspace();
             setUser(null);
             setCsrf("");
             setAccounts(
@@ -209,20 +240,25 @@ export default function Portal() {
         if (v === version.current) setLoading(false);
       }
     },
-    [user, view, week, filters, offset],
+    [user, view, week, filters, offset, clearWorkspace],
   );
 
   useEffect(() => {
     void load(true);
     const refresh = () => {
-      if (document.visibilityState === "visible") void load();
+      if (document.visibilityState === "visible") void load(false, true);
     };
     const interval = setInterval(refresh, 10000);
     window.addEventListener("focus", refresh);
+    const sessionChanged = (event: StorageEvent) => {
+      if (event.key === "portal-session-changed") void load(true, true);
+    };
+    window.addEventListener("storage", sessionChanged);
     return () => {
       ++version.current;
       clearInterval(interval);
       window.removeEventListener("focus", refresh);
+      window.removeEventListener("storage", sessionChanged);
     };
   }, [load]);
 
@@ -242,8 +278,9 @@ export default function Portal() {
         { user_id: account.id },
       );
       setCsrf(auth.csrf_token);
+      clearWorkspace();
       setUser(auth.user);
-      setSheet(null);
+      localStorage.setItem("portal-session-changed", crypto.randomUUID());
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -254,13 +291,10 @@ export default function Portal() {
     setBusy(true);
     try {
       await api("/auth/logout", "POST");
-      ++version.current;
+      clearWorkspace();
       setUser(null);
       setCsrf("");
-      setView("timesheet");
-      setFilters({});
-      setOffset(0);
-      setModal(null);
+      localStorage.setItem("portal-session-changed", crypto.randomUUID());
       setAccounts(await api<User[]>("/auth/demo-accounts"));
     } catch (e) {
       setError((e as Error).message);
@@ -296,6 +330,14 @@ export default function Portal() {
     setBusy(true);
     setFormError("");
     try {
+      const auth = await api<{ user: User; csrf_token: string }>("/auth/me");
+      if (auth.user.id !== user?.id || auth.user.role !== user?.role) {
+        clearWorkspace();
+        setCsrf(auth.csrf_token);
+        setUser(auth.user);
+        return;
+      }
+      setCsrf(auth.csrf_token);
       await api(path, method, body);
       setModal(null);
       setNotice(message);

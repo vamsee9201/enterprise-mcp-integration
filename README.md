@@ -27,6 +27,8 @@ The reporting relationships are chosen for the permission demo rather than repro
 
 Select a demo account at login. Use the switch-account button in the header to change identities.
 
+Tabs in the same browser share a session. Switching accounts or signing out synchronizes the other tabs and closes their unsaved forms. Use separate browser profiles if you want employee and manager accounts signed in at the same time.
+
 Stop with `docker compose down`. To **delete local demo data and reset everything**, run:
 
 ```sh
