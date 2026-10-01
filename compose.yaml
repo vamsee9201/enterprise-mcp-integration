@@ -1,0 +1,65 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: portal
+      POSTGRES_PASSWORD: portal
+      POSTGRES_DB: portal
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - portal-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U portal -d portal"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  init:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment: &backend-env
+      DATABASE_URL: postgresql+psycopg://portal:portal@db:5432/portal
+      DEMO_MODE: "true"
+      WEB_ORIGIN: http://localhost:3000
+    command:
+      [
+        "sh",
+        "-c",
+        "alembic -c backend/alembic.ini upgrade head && python -m backend.app.demo seed",
+      ]
+    depends_on:
+      db:
+        condition: service_healthy
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment: *backend-env
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+volumes:
+  portal-data:
