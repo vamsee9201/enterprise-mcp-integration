@@ -17,7 +17,7 @@ class TimeEntryInput(Input):
     project_id: UUID
     work_date: date
     hours: Decimal = Field(gt=0, le=24, max_digits=4, decimal_places=2)
-    description: str = Field(min_length=1, max_length=1000)
+    description: str = Field(default="", max_length=1000)
 
 
 class TaskInput(Input):

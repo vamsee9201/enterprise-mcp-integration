@@ -279,7 +279,7 @@ export function TimesheetView({
                     <div className="row-actions">
                       <button
                         className="icon-button"
-                        aria-label={`Edit ${entry.description}`}
+                        aria-label={`Edit ${entry.description || `${entry.hours}-hour entry`}`}
                         disabled={busy}
                         onClick={() =>
                           editCell(entry, entry.project_id, entry.work_date)
@@ -289,7 +289,7 @@ export function TimesheetView({
                       </button>
                       <button
                         className="icon-button danger"
-                        aria-label={`Delete ${entry.description}`}
+                        aria-label={`Delete ${entry.description || `${entry.hours}-hour entry`}`}
                         disabled={busy}
                         onClick={() =>
                           void mutate(

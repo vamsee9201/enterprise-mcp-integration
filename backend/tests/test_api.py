@@ -1,3 +1,4 @@
+import pytest
 from datetime import timedelta
 from sqlalchemy import select
 from backend.app.database.seed import uid
@@ -83,3 +84,19 @@ def test_list_validation_and_identity_spoofing(client, login):
         == 422
     )
     assert client.get("/api/v1/approvals").status_code == 403
+
+
+@pytest.mark.parametrize("description", [None, "", "  "])
+def test_logging_and_updating_without_description(client, login, description):
+    login(2)
+    body = {"project_id": str(uid(101)), "work_date": "2026-10-01", "hours": 7}
+    if description is not None:
+        body["description"] = description
+    response = client.post("/api/v1/time-entries", json=body)
+    assert response.status_code == 200, response.text
+    entry = response.json()
+    assert entry["description"] == ""
+    response = client.put(f"/api/v1/time-entries/{entry['id']}", json={**body, "hours": 8})
+    assert response.status_code == 200, response.text
+    assert response.json()["description"] == ""
+    assert client.post("/api/v1/timesheets/submit?week=2026-09-28").status_code == 200

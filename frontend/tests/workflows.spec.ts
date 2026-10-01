@@ -372,3 +372,31 @@ test("weekly grid aggregates entries, deletes individual entries, and resets emp
     }),
   ).toBeVisible();
 });
+
+test("logs and submits hours without a description", async ({ page }) => {
+  await login(page, "Jared Dunn");
+  await page.getByLabel("Timesheet week").fill("2026-12-14");
+  await page
+    .getByRole("button", { name: "PiperNet on 12/16: 0 hours", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("Work description (optional)", { exact: true }),
+  ).not.toHaveAttribute("required", "");
+  await page.getByLabel("Hours", { exact: true }).fill("6");
+  await page.getByRole("button", { name: "Save entry" }).click();
+  await page
+    .getByRole("button", { name: "PiperNet on 12/16: 6 hours", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Edit 6-hour entry", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Save entry" }).click();
+  await expect(
+    page.getByRole("button", {
+      name: "PiperNet on 12/16: 6 hours",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Submit week" }).click();
+  await expect(page.getByText("Waiting for manager review")).toBeVisible();
+});

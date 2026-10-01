@@ -139,13 +139,12 @@ export function WorkflowDialog({
               />
             </Field>
           </div>
-          <Field label="Work description">
+          <Field label="Work description (optional)">
             <textarea
               name="description"
               maxLength={1000}
               defaultValue={editing?.description}
               placeholder="What did you work on?"
-              required
             />
           </Field>
           <div className="form-footer">
