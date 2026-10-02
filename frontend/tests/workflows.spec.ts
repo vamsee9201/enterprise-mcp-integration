@@ -1,5 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
 
+test.beforeEach(async ({ request }) => {
+  const response = await request.post("/api/v1/__test/reset");
+  expect(response.ok()).toBeTruthy();
+});
+
 async function login(page: Page, name: string) {
   await page.goto("/");
   await page.getByRole("button", { name: `Sign in as ${name}` }).click();
@@ -649,4 +654,83 @@ test("Monica can assign a ticket to Dinesh who can see and work on it", async ({
       exact: true,
     }),
   ).toHaveCount(0);
+});
+
+test("manager leave requires admin review and approval is visible to the requester", async ({
+  page,
+}) => {
+  await login(page, "Monica Hall");
+  await navigate(page, "Leave");
+  await page
+    .getByRole("button", { name: "Request leave", exact: true })
+    .click();
+  await page.getByLabel("Start date").fill("2027-06-07");
+  await page.getByLabel("End date").fill("2027-06-07");
+  await page.getByLabel("Reason (optional)").fill("QA admin leave approval");
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await expect(
+    page.getByRole("row").filter({ hasText: "QA admin leave approval" }),
+  ).toBeVisible();
+  await navigate(page, "Manager Review");
+  await expect(
+    page.getByRole("row").filter({ hasText: "QA admin leave approval" }),
+  ).toHaveCount(0);
+  await switchAccount(page, "Richard Hendricks");
+  await navigate(page, "Manager Review");
+  await page.getByLabel("Filter request type").selectOption("leave");
+  await page
+    .getByRole("row")
+    .filter({ hasText: "QA admin leave approval" })
+    .getByRole("button")
+    .click();
+  await page.getByRole("button", { name: "Approve", exact: true }).click();
+  await expect(
+    page.getByRole("row").filter({ hasText: "QA admin leave approval" }),
+  ).toHaveCount(0);
+  await switchAccount(page, "Monica Hall");
+  await navigate(page, "Leave");
+  await page.getByLabel("Filter status").selectOption("APPROVED");
+  await page
+    .getByRole("row")
+    .filter({ hasText: "QA admin leave approval" })
+    .getByRole("button")
+    .click();
+  await expect(
+    page.getByText("Reviewed by Richard Hendricks", { exact: true }),
+  ).toBeVisible();
+});
+
+test("filtered ticket pagination preserves search and displays the remaining record", async ({
+  page,
+}) => {
+  await login(page, "Richard Hendricks");
+  // Prepare isolated fixture data through the same REST boundary, then use the UI.
+  const identity = await page.request.get("/api/v1/auth/me");
+  const csrf = (await identity.json()).csrf_token;
+  for (let index = 0; index < 51; index++) {
+    const response = await page.request.post("/api/v1/tickets", {
+      headers: { Origin: "http://localhost:3010", "X-CSRF-Token": csrf },
+      data: { title: `Pagination QA ${index}` },
+    });
+    expect(response.ok()).toBeTruthy();
+  }
+  await navigate(page, "Support Tickets");
+  await page.getByLabel("Search records").fill("Pagination QA");
+  await expect(
+    page.getByText("51 records · Updates every 10 seconds"),
+  ).toBeVisible();
+  await expect(page.getByRole("row")).toHaveCount(51);
+  await page.getByRole("button", { name: "Next page", exact: true }).click();
+  await expect(page.getByRole("row")).toHaveCount(2);
+  await expect(
+    page.getByRole("button", { name: "View Pagination QA 0", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Search records")).toHaveValue("Pagination QA");
+  await expect(
+    page.getByRole("button", { name: "Next page", exact: true }),
+  ).toBeDisabled();
+  await page
+    .getByRole("button", { name: "Previous page", exact: true })
+    .click();
+  await expect(page.getByRole("row")).toHaveCount(51);
 });

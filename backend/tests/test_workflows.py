@@ -141,6 +141,15 @@ def test_locked_timesheets(call, reviewed):
         add(call)
     with pytest.raises(ServiceError, match="locked"):
         call(2, "delete_time_entry", entry_id=UUID(entry["id"]))
+    with pytest.raises(ServiceError, match="locked"):
+        call(
+            2,
+            "update_time_entry",
+            entry_id=UUID(entry["id"]),
+            project_id=uid(101),
+            work_date=DAY,
+            hours=8,
+        )
 
 
 def test_ownership_team_and_self_review(call, database):

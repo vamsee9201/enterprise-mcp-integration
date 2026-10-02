@@ -93,3 +93,28 @@ def test_concurrent_overlapping_leave(postgres_database):
         ]
     )
     assert sum(isinstance(r, dict) for r in results) == 1 and results.count(409) == 1
+
+
+def test_concurrent_leave_decision_has_one_winner(postgres_database):
+    leave = invoke(2, "request_leave", start_date=date(2027, 5, 1), end_date=date(2027, 5, 2))
+    lid = UUID(leave["id"])
+    results = race(
+        [
+            lambda: invoke(1, "approve_leave", leave_id=lid),
+            lambda: invoke(6, "reject_leave", leave_id=lid, reason="Competing review"),
+        ]
+    )
+    assert sum(isinstance(result, dict) for result in results) == 1
+    assert results.count(409) == 1
+    with postgres_database() as db:
+        assert (
+            db.scalar(
+                select(func.count())
+                .select_from(AuditEvent)
+                .where(
+                    AuditEvent.action.in_(["approve_leave", "reject_leave"]),
+                    AuditEvent.outcome == "SUCCESS",
+                )
+            )
+            == 1
+        )

@@ -20,7 +20,10 @@ export default defineConfig({
       reuseExistingServer: false,
     },
     {
-      command: "npm run dev -- --port 3010",
+      command:
+        process.env.PLAYWRIGHT_PRODUCTION === "1"
+          ? "node ../scripts/e2e_frontend.mjs"
+          : "npm run dev -- --port 3010",
       env: {
         API_INTERNAL_URL: "http://127.0.0.1:8010",
         NEXT_TELEMETRY_DISABLED: "1",

@@ -606,10 +606,15 @@ class Portal:
 
         zone = ZoneInfo(settings.app_timezone)
         if start_date:
-            q = q.where(AuditEvent.created_at >= datetime.combine(start_date, time.min, zone))
+            q = q.where(
+                AuditEvent.created_at
+                >= datetime.combine(start_date, time.min, zone).astimezone(timezone.utc)
+            )
         if end_date:
             q = q.where(
                 AuditEvent.created_at
-                < datetime.combine(end_date + timedelta(days=1), time.min, zone)
+                < datetime.combine(end_date + timedelta(days=1), time.min, zone).astimezone(
+                    timezone.utc
+                )
             )
         return self._page(q.order_by(AuditEvent.created_at.desc(), AuditEvent.id), limit, offset)

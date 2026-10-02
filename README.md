@@ -119,30 +119,49 @@ Identity and source are never accepted as mutation body fields. Authenticated wr
 
 ## Verification
 
-```sh
-.venv/bin/pytest -q
-npm run typecheck --prefix frontend
-npm run build --prefix frontend
-```
-
-For PostgreSQL locking tests, create a **disposable test database**:
+Install the backend development dependencies and frontend dependencies before running tests:
 
 ```sh
-docker compose exec db createdb -U portal portal_test
-TEST_DATABASE_URL=postgresql+psycopg://portal:portal@localhost:5433/portal_test .venv/bin/pytest -q
+python3 -m venv .venv
+.venv/bin/pip install -r backend/requirements-dev.txt
+npm ci --prefix frontend
+cd frontend && npx playwright install chromium && cd ..
 ```
 
-These tests recreate tables in the test database. They refuse URLs without `test` in the database name. Never point them at your development or production database.
+For quick feedback after edits, run `make check`. It runs Python lint/format checks, the SQLite backend tests, and TypeScript checks. PostgreSQL concurrency tests are intentionally excluded from this fast command.
 
-Browser checks start isolated API/UI servers and a temporary SQLite database:
+Before pushing a change, run the complete gate:
 
 ```sh
-cd frontend
-npx playwright install chromium
-npm run test:e2e
+docker compose up -d db
+docker compose exec -T db createdb -U portal portal_test
+TEST_DATABASE_URL=postgresql+psycopg://portal:portal@localhost:5433/portal_test make verify
 ```
 
-Tests cover the employee-to-manager timesheet lifecycle, task assignment/completion, leave overlap/rejection, ticket triage, directory searches, mobile navigation and automatic UI refresh after an external API write.
+Create the test database once; reuse it on later runs. `make verify` fails if `TEST_DATABASE_URL` is missing. It runs all backend tests, PostgreSQL locking tests, TypeScript checks, a production frontend build, and all browser workflows. Browser servers use ports 3010/8010 and a temporary SQLite database. The production build used by the browser suite points to the isolated test API, while Docker builds continue to use the normal API configuration.
+
+**Only use a disposable test database.** PostgreSQL tests recreate its tables and refuse URLs without `test` in the database name. Tests do not reset the local demo database. Do not run multiple verification suites simultaneously against the same test database or ports.
+
+| Test layer      | Covered contracts                                                                                                                                                                                                                                                     |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shared services | Ownership/team/admin permissions, creator/assignee ticket access, reassignment, all ticket transitions, timesheet validation and locks, leave overlap/self-review, combined approval queues, filters/pagination, Chicago activity dates, atomic auditing and rollback |
+| REST/auth       | Sessions, expiry, CSRF/origin checks, identity/source spoofing, typed validation, status codes, module workflows and audit sources                                                                                                                                    |
+| Database        | Migration upgrade/downgrade, seed preservation, competing timesheet/leave decisions, concurrent hour totals and overlapping leave; calendar filters on SQLite and PostgreSQL                                                                                          |
+| Browser         | Employee/manager/admin workflows, optional descriptions, grid edit/delete/aggregation, task completion, leave review, assigned tickets and reopening, search/pagination, automatic refresh, shared-tab identity, centered desktop/mobile dialogs and navigation       |
+
+GitHub Actions runs `make verify` on every push and pull request with PostgreSQL 16, Python 3.13, and Node 22. Failed browser runs upload screenshots and traces as the `browser-failures` artifact. Locally, find these under `frontend/test-results/`.
+
+Useful individual commands:
+
+```sh
+make backend-test                         # PostgreSQL tests skip without TEST_DATABASE_URL
+make frontend-test                        # Browser workflows against the dev frontend
+npm run test:e2e:production --prefix frontend
+.venv/bin/pytest -q backend/tests/test_api.py
+npm run test:e2e --prefix frontend -- --grep 'Monica can assign'
+```
+
+When fixing a bug, add a regression test that fails before the fix. When deliberately changing workflow rules, update the corresponding service/REST/browser expectations together. Passing tests validate these covered behaviors; they cannot guarantee every possible future change is correct.
 
 ## Demo walkthrough
 

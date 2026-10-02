@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start --hostname 0.0.0.0",
     "typecheck": "tsc --noEmit",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:production": "API_INTERNAL_URL=http://127.0.0.1:8010 npm run build && PLAYWRIGHT_PRODUCTION=1 playwright test"
   },
   "dependencies": {
     "next": "^15.5.0",

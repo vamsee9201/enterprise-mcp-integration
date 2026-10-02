@@ -23,5 +23,19 @@ from backend.app.database.seed import seed
 
 seed()
 import uvicorn
+from backend.app.main import app
+from backend.app.database.connection import Base, engine
 
-uvicorn.run("backend.app.main:app", host="127.0.0.1", port=8010)
+
+@app.post("/api/v1/__test/reset", include_in_schema=False)
+def reset_browser_fixture():
+    # Registered only by this isolated harness, never by the application or Docker.
+    # Playwright runs one worker and closes each test's browser context before reset.
+    with engine.begin() as connection:
+        for table in reversed(Base.metadata.sorted_tables):
+            connection.execute(table.delete())
+    seed()
+    return {"ok": True}
+
+
+uvicorn.run(app, host="127.0.0.1", port=8010)
