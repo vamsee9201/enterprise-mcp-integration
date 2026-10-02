@@ -1,8 +1,10 @@
 # Pied Piper Operations
 
-A Silicon Valley–themed Pied Piper enterprise portal for everyday work: timesheets, tasks, leave, support tickets, an employee directory, manager review, and activity logs.
+A Silicon Valley–themed Pied Piper enterprise portal for everyday work: timesheets, tasks, leave, support tickets, an employee directory, manager review, and activity logs. All workflows are also available through an authenticated local FastMCP server.
 
-This release implements the **enterprise web application only**. MCP integration is intentionally deferred. REST endpoints already call shared business services so a future MCP adapter can reuse the same permissions, validation, workflows, and transactions.
+See [MCP setup and Codex demo](docs/MCP.md) for credentials, tools, retry behavior, and connection instructions.
+
+This release includes the enterprise web application and a local FastMCP server. REST handlers and MCP tools share permissions, validation, workflows, transactions, and auditing.
 
 ## Run locally
 
@@ -44,7 +46,8 @@ The reset command deletes this project's PostgreSQL volume. Normal startup and t
 flowchart LR
   UI[Next.js web UI] --> REST[FastAPI REST API]
   REST --> Services[Shared business services]
-  Future[Future MCP adapter] -. deferred .-> Services
+  Agent[Codex / MCP client] --> MCP[FastMCP HTTP]
+  MCP --> Services
   Services --> DB[(PostgreSQL)]
   Services --> Audit[Transactional audit records]
   Audit --> DB
@@ -72,7 +75,7 @@ flowchart LR
 
 **Manager review:** one pending queue for timesheets and leave. Own requests are excluded. Admins can review all other users' requests. Self-approval and self-rejection are forbidden for every role.
 
-**Activity:** employees see their own actions; managers see their own and direct-report actions; admins see all. Filter by actor, source, action, resource, outcome and dates. All current actions have source UI; the source field supports future MCP integration without implementing a server.
+**Activity:** employees see their own actions; managers see their own and direct-report actions; admins see all. Filter by actor, source, action, resource, outcome and dates. Actions identify their UI or MCP source; agent writes appear beside web actions.
 
 Dates use America/Chicago; timestamps are stored in UTC. Workflow views refresh every ten seconds while visible, after mutations, and on window focus.
 
@@ -176,4 +179,4 @@ When fixing a bug, add a regression test that fails before the fix. When deliber
 
 ## Deferred
 
-MCP server/tools and agent clients, cloud deployment, employee/project administration, notifications, file uploads, payroll, leave accrual, expenses, equipment requests, and multitenancy.
+OAuth/public MCP hosting, cloud deployment, employee/project administration, notifications, file uploads, payroll, leave accrual, expenses, equipment requests, and multitenancy.

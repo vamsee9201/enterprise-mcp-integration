@@ -2,7 +2,7 @@ import secrets
 from datetime import date
 from typing import Annotated, Literal
 from uuid import UUID, uuid4
-from fastapi import APIRouter, Depends, Request, Response, Query
+from fastapi import APIRouter, Depends, Request, Response, Query, Header
 from sqlalchemy import select
 from backend.app.config import settings
 from backend.app.auth.context import ActorContext, ServiceError
@@ -17,6 +17,7 @@ from backend.app.schemas.inputs import (
     Priority,
     Rejection,
     TaskEdit,
+    TaskPatch,
     TaskInput,
     TaskState,
     TaskStatus,
@@ -28,6 +29,7 @@ from backend.app.schemas.inputs import (
 )
 from backend.app.schemas.outputs import (
     AuditView,
+    ContextView,
     EntryView,
     LeaveView,
     Page,
@@ -41,6 +43,7 @@ from backend.app.schemas.outputs import (
 router = APIRouter(prefix="/api/v1")
 Limit = Annotated[int, Query(ge=1, le=100)]
 Offset = Annotated[int, Query(ge=0)]
+RetryKey = Annotated[UUID | None, Header(alias="Idempotency-Key")]
 
 
 def actor(request: Request):
@@ -161,8 +164,8 @@ def timesheet(timesheet_id: UUID, a: Actor):
 
 
 @router.post("/time-entries", response_model=EntryView)
-def add_entry(body: TimeEntryInput, a: Actor):
-    return run(a, "add_time_entry", **body.model_dump())
+def add_entry(body: TimeEntryInput, a: Actor, retry_key: RetryKey = None):
+    return run(a, "add_time_entry", idempotency_key=retry_key, **body.model_dump())
 
 
 @router.put("/time-entries/{entry_id}", response_model=EntryView)
@@ -216,8 +219,8 @@ def task(task_id: UUID, a: Actor):
 
 
 @router.post("/tasks", response_model=TaskView)
-def create_task(body: TaskInput, a: Actor):
-    return run(a, "create_task", **body.model_dump())
+def create_task(body: TaskInput, a: Actor, retry_key: RetryKey = None):
+    return run(a, "create_task", idempotency_key=retry_key, **body.model_dump())
 
 
 @router.put("/tasks/{task_id}", response_model=TaskView)
@@ -241,8 +244,8 @@ def leave_request(leave_id: UUID, a: Actor):
 
 
 @router.post("/leave-requests", response_model=LeaveView)
-def request_leave(body: LeaveInput, a: Actor):
-    return run(a, "request_leave", **body.model_dump())
+def request_leave(body: LeaveInput, a: Actor, retry_key: RetryKey = None):
+    return run(a, "request_leave", idempotency_key=retry_key, **body.model_dump())
 
 
 @router.post("/leave-requests/{leave_id}/approve", response_model=LeaveView)
@@ -283,8 +286,8 @@ def ticket(ticket_id: UUID, a: Actor):
 
 
 @router.post("/tickets", response_model=TicketView)
-def create_ticket(body: TicketInput, a: Actor):
-    return run(a, "create_ticket", **body.model_dump())
+def create_ticket(body: TicketInput, a: Actor, retry_key: RetryKey = None):
+    return run(a, "create_ticket", idempotency_key=retry_key, **body.model_dump())
 
 
 @router.get("/approvals")
@@ -348,3 +351,35 @@ def ticket_status(ticket_id: UUID, body: TicketState, a: Actor):
 @router.patch("/tickets/{ticket_id}/priority", response_model=TicketView)
 def ticket_priority(ticket_id: UUID, body: TicketPriority, a: Actor):
     return run(a, "update_ticket_priority", ticket_id=ticket_id, **body.model_dump())
+
+
+@router.get("/context", response_model=ContextView)
+def context(a: Actor):
+    return run(a, "get_my_context")
+
+
+@router.get("/timesheets", response_model=Page[SheetView])
+def timesheets(
+    a: Actor,
+    employee_id: UUID | None = None,
+    start_week: date | None = None,
+    end_week: date | None = None,
+    status: Literal["DRAFT", "SUBMITTED", "APPROVED", "REJECTED"] | None = None,
+    limit: Limit = 50,
+    offset: Offset = 0,
+):
+    return run(
+        a,
+        "list_timesheets",
+        employee_id=employee_id,
+        start_week=start_week,
+        end_week=end_week,
+        status=status,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.patch("/tasks/{task_id}", response_model=TaskView)
+def patch_task(task_id: UUID, body: TaskPatch, a: Actor):
+    return run(a, "patch_task", task_id=task_id, **body.model_dump(exclude_unset=True))

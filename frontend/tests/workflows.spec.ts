@@ -752,3 +752,20 @@ test("ticket creator can skip directly to resolved or closed and reopen", async 
   await navigate(page, "Activity");
   await expect(page.getByText("update_ticket_status", { exact: true }).first()).toBeVisible();
 });
+
+test("MCP workflows appear in the portal without a manual reload", async ({ page, request }) => {
+  await login(page, "Dinesh Chugtai");
+  await page.getByLabel("Timesheet week").fill("2027-03-01");
+  await expect(page.getByRole("button", { name: "Compression Engine on 03/01: 0 hours", exact: true })).toBeVisible();
+  const response = await request.post("/api/v1/__test/mcp-demo");
+  expect(response.ok()).toBeTruthy();
+  await expect(page.getByRole("button", { name: "Compression Engine on 03/01: 7 hours", exact: true })).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText("APPROVED", { exact: true }).first()).toBeVisible();
+  await navigate(page, "Tasks");
+  await expect(page.getByRole("row").filter({ hasText: "MCP demo integration" }).getByText("DONE", { exact: true })).toBeVisible();
+  await navigate(page, "Support Tickets");
+  await expect(page.getByRole("row").filter({ hasText: "MCP demo VPN issue" }).getByText("OPEN", { exact: true })).toBeVisible();
+  await navigate(page, "Activity");
+  await page.getByLabel("Filter source").selectOption("MCP");
+  await expect(page.getByText("add_time_entry", { exact: true }).first()).toBeVisible();
+});

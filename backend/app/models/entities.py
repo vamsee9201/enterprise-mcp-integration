@@ -39,6 +39,9 @@ class SessionToken(Record, Base):
     token_hash: Mapped[str] = mapped_column(String(64), unique=True)
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
     kind: Mapped[str] = mapped_column(String(10))
+    scopes: Mapped[list[str]] = mapped_column(JSON, default=list)
+    rate_window: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    rate_count: Mapped[int] = mapped_column(default=0)
     csrf_token: Mapped[str | None] = mapped_column(String(100))
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
@@ -133,3 +136,13 @@ class AuditEvent(Record, Base):
     outcome: Mapped[str] = mapped_column(String(20))
     request_id: Mapped[str] = mapped_column(String(100))
     details: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class IdempotencyRecord(Record, Base):
+    __tablename__ = "idempotency_records"
+    __table_args__ = (UniqueConstraint("actor_id", "operation", "key"),)
+    actor_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    operation: Mapped[str] = mapped_column(String(100))
+    key: Mapped[UUID]
+    fingerprint: Mapped[str] = mapped_column(String(64))
+    result: Mapped[dict] = mapped_column(JSON)

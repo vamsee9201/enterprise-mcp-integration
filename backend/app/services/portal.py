@@ -1,5 +1,10 @@
 """Application rules shared by HTTP and MCP. No transport dependencies."""
 
+import hashlib
+import json
+from uuid import UUID
+from zoneinfo import ZoneInfo
+from backend.app.config import settings
 from datetime import date, timedelta, datetime, timezone
 from decimal import Decimal
 from sqlalchemy import select, func, or_
@@ -19,11 +24,13 @@ from backend.app.models.entities import (
     Ticket,
     AuditEvent,
     utcnow,
+    IdempotencyRecord,
 )
 from backend.app.schemas.inputs import (
     TimeEntryInput,
     TaskInput,
     TaskEdit,
+    TaskPatch,
     LeaveInput,
     TicketInput,
     Rejection,
@@ -44,7 +51,7 @@ def monday(value: date):
     return value - timedelta(days=value.weekday())
 
 
-def run(actor: ActorContext, operation_name: str, **args):
+def run(actor: ActorContext, operation_name: str, *, idempotency_key=None, **args):
     """One transaction per business operation, with atomic success audits.
 
     Actor locks serialize a user's entry totals / leave overlap checks in PostgreSQL.
@@ -61,7 +68,56 @@ def run(actor: ActorContext, operation_name: str, **args):
             user = db.scalar(query)
             if not user:
                 raise ServiceError("Account unavailable", 401)
-            result = getattr(Portal(db, user, bool(resource)), operation_name)(**args)
+            service = Portal(db, user, bool(resource))
+            fingerprint = None
+            if idempotency_key is not None:
+                models = {
+                    "add_time_entry": TimeEntryInput,
+                    "create_task": TaskInput,
+                    "request_leave": LeaveInput,
+                    "create_ticket": TicketInput,
+                }
+                if operation_name not in models:
+                    raise ServiceError("Retry keys are supported only for creation operations", 422)
+                normalized = models[operation_name](**args).model_dump(mode="json")
+                if "hours" in normalized:
+                    normalized["hours"] = str(Decimal(normalized["hours"]).normalize())
+                fingerprint = hashlib.sha256(
+                    json.dumps(normalized, sort_keys=True).encode()
+                ).hexdigest()
+                saved = db.scalar(
+                    select(IdempotencyRecord).where(
+                        IdempotencyRecord.actor_id == user.id,
+                        IdempotencyRecord.operation == operation_name,
+                        IdempotencyRecord.key == idempotency_key,
+                    )
+                )
+                if saved:
+                    if saved.fingerprint != fingerprint:
+                        raise ServiceError("Idempotency key reused with different arguments", 409)
+                    record = saved.result
+                    if operation_name == "add_time_entry":
+                        service.get_timesheet(UUID(record["timesheet_id"]))
+                    else:
+                        reader = {
+                            "create_task": "get_task",
+                            "request_leave": "get_leave_request",
+                            "create_ticket": "get_ticket",
+                        }[operation_name]
+                        getattr(service, reader)(UUID(record["id"]))
+                    return {**record, "replayed": True}
+            result = getattr(service, operation_name)(**args)
+            if fingerprint is not None:
+                db.add(
+                    IdempotencyRecord(
+                        actor_id=user.id,
+                        operation=operation_name,
+                        key=idempotency_key,
+                        fingerprint=fingerprint,
+                        result=result,
+                    )
+                )
+                result = {**result, "replayed": False}
             if resource:
                 db.add(
                     AuditEvent(
@@ -200,6 +256,39 @@ class Portal:
     @operation()
     def get_me(self):
         return self._dump(self.user)
+
+    @operation()
+    def get_my_context(self):
+        current = utcnow().astimezone(ZoneInfo(settings.app_timezone)).date()
+        return {
+            "user": self._dump(self.user),
+            "manager": self._dump(self.db.get(User, self.user.manager_id))
+            if self.user.manager_id
+            else None,
+            "timezone": settings.app_timezone,
+            "today": current.isoformat(),
+            "week_start": monday(current).isoformat(),
+        }
+
+    @operation()
+    def list_timesheets(
+        self, employee_id=None, start_week=None, end_week=None, status=None, limit=50, offset=0
+    ):
+        if status and status not in ("DRAFT", "SUBMITTED", "APPROVED", "REJECTED"):
+            raise ServiceError("Invalid timesheet status", 422)
+        if start_week and end_week and start_week > end_week:
+            raise ServiceError("Invalid week range", 422)
+        q = select(Timesheet).where(Timesheet.user_id.in_(self._team_ids()))
+        if employee_id:
+            self._person(employee_id)
+            q = q.where(Timesheet.user_id == employee_id)
+        if start_week:
+            q = q.where(Timesheet.week_start >= monday(start_week))
+        if end_week:
+            q = q.where(Timesheet.week_start <= monday(end_week))
+        if status:
+            q = q.where(Timesheet.status == status)
+        return self._page(q.order_by(Timesheet.week_start.desc(), Timesheet.id), limit, offset)
 
     @operation()
     def search_employees(self, query="", department=None, manager_id=None, limit=50, offset=0):
@@ -422,6 +511,21 @@ class Portal:
         self._task_project(data.project_id)
         for key, value in data.model_dump().items():
             setattr(task, key, value)
+        return self._dump(task)
+
+    @operation("task")
+    def patch_task(self, task_id, **args):
+        self._manager()
+        task = self._load(Task, task_id)
+        self._person(task.assignee_id)
+        try:
+            changes = TaskPatch.changes(args)
+        except ValueError as exc:
+            raise ServiceError(str(exc), 422) from exc
+        if "project_id" in changes:
+            self._task_project(changes["project_id"])
+        for field, value in changes.items():
+            setattr(task, field, value)
         return self._dump(task)
 
     @operation("task")

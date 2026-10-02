@@ -89,3 +89,11 @@ class Page(BaseModel, Generic[T]):
     total: int
     limit: int
     offset: int
+
+
+class ContextView(BaseModel):
+    user: UserView
+    manager: UserView | None
+    timezone: str
+    today: date
+    week_start: date

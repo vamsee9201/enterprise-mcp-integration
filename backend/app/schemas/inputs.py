@@ -69,3 +69,20 @@ class TicketPriority(Input):
 
 class DemoLogin(Input):
     user_id: UUID
+
+
+class TaskPatch(Input):
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=2000)
+    project_id: UUID | None = None
+    due_date: date | None = None
+
+    @classmethod
+    def changes(cls, args):
+        data = cls(**args)
+        changes = data.model_dump(exclude_unset=True)
+        if not changes:
+            raise ValueError("Provide at least one task field")
+        if any(changes.get(field, "") is None for field in ("title", "description")):
+            raise ValueError("Title and description cannot be null")
+        return changes
