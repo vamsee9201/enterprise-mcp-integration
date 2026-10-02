@@ -383,23 +383,35 @@ export function WorkflowDialog({
                 Created by {selected.creator_name} · Assigned to{" "}
                 {selected.assignee_name || "Nobody yet"}
               </p>
-              <Field label="Move ticket to">
+              <Field label="Ticket status">
                 <select
-                  defaultValue=""
+                  value={selected.status}
                   disabled={busy}
                   onChange={(e) => {
-                    if (e.target.value)
+                    if (e.target.value !== selected.status)
                       void mutate(`/tickets/${selected.id}/status`, "PATCH", {
                         status: e.target.value,
                       });
                   }}
                 >
-                  <option value="">Choose next status</option>
-                  {ticketNext[selected.status || "OPEN"].map((s) => (
-                    <option key={s}>{s}</option>
+                  {["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"].map((s) => (
+                    <option
+                      key={s}
+                      value={s}
+                      disabled={
+                        s !== selected.status &&
+                        !ticketNext[selected.status || "OPEN"].includes(s)
+                      }
+                    >
+                      {s.replaceAll("_", " ")}
+                    </option>
                   ))}
                 </select>
               </Field>
+              <p className="subtle">
+                Open → In progress → Resolved → Closed. Resolved or closed
+                tickets can reopen. Unavailable transitions are disabled.
+              </p>
               {manager && (
                 <>
                   <Field label="Priority">

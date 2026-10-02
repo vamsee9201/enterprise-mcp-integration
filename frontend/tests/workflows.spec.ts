@@ -222,11 +222,11 @@ test("ticket creation, assignment, priority and resolution", async ({
   await page
     .getByRole("button", { name: "View Laptop cannot connect to VPN" })
     .click();
-  await page.getByLabel("Move ticket to").selectOption("IN_PROGRESS");
+  await page.getByLabel("Ticket status").selectOption("IN_PROGRESS");
   await page
     .getByRole("button", { name: "View Laptop cannot connect to VPN" })
     .click();
-  await page.getByLabel("Move ticket to").selectOption("RESOLVED");
+  await page.getByLabel("Ticket status").selectOption("RESOLVED");
   await expect(
     page
       .getByRole("row")
@@ -498,7 +498,7 @@ test("closed ticket can reopen and an assigned ticket has no ineffective empty a
     await page
       .getByRole("button", { name: "View QA ticket reopening", exact: true })
       .click();
-    await page.getByLabel("Move ticket to").selectOption(status);
+    await page.getByLabel("Ticket status").selectOption(status);
     await expect(
       page
         .getByRole("row")
@@ -553,3 +553,34 @@ test("shared browser sessions synchronize account switches and close stale forms
   ).toBeVisible();
   await other.close();
 });
+
+for (const width of [390, 1280]) {
+  test(`dialogs are centered at ${width}px and all ticket statuses are visible`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await login(page, "Dinesh Chugtai");
+    await page.getByRole("button", { name: "Log time", exact: true }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    const box = await dialog.boundingBox();
+    expect(box).not.toBeNull();
+    expect(Math.abs(box!.x + box!.width / 2 - width / 2)).toBeLessThan(2);
+    expect(Math.abs(box!.y + box!.height / 2 - 844 / 2)).toBeLessThan(2);
+    await page.getByRole("button", { name: "Close dialog" }).click();
+    if (width === 390)
+      await page.getByRole("button", { name: "Open navigation" }).click();
+    await navigate(page, "Support Tickets");
+    await page
+      .getByRole("button", {
+        name: "View PiperNet staging VPN disconnects",
+        exact: true,
+      })
+      .click();
+    const status = page.getByLabel("Ticket status", { exact: true });
+    await expect(status).toHaveValue("IN_PROGRESS");
+    await expect(status.locator("option")).toHaveCount(4);
+    await expect(status.locator('option[value="CLOSED"]')).toBeDisabled();
+    await expect(status.locator('option[value="RESOLVED"]')).toBeEnabled();
+  });
+}

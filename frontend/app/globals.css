@@ -686,6 +686,9 @@ tbody tr:hover {
   line-height: 1.5;
 }
 .modal {
+  position: fixed;
+  inset: 0;
+  margin: auto;
   border: 1px solid var(--border);
   border-radius: 13px;
   padding: 0;
