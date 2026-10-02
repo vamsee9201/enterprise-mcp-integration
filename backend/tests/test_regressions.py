@@ -11,31 +11,30 @@ from backend.app.database.seed import uid
 from backend.app.models.entities import AuditEvent, Ticket, User
 
 
+@pytest.mark.parametrize("actor", [2, 3, 1, 6], ids=["creator", "assignee", "manager", "admin"])
 @pytest.mark.parametrize("initial", ["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"])
 @pytest.mark.parametrize("target", ["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"])
-def test_ticket_transition_matrix(call, database, initial, target):
-    allowed = {
-        ("OPEN", "IN_PROGRESS"),
-        ("IN_PROGRESS", "OPEN"),
-        ("IN_PROGRESS", "RESOLVED"),
-        ("RESOLVED", "OPEN"),
-        ("RESOLVED", "CLOSED"),
-        ("CLOSED", "OPEN"),
-    }
+def test_ticket_transition_matrix(call, database, actor, initial, target):
     ticket = call(2, "create_ticket", title="Transition contract")
     tid = UUID(ticket["id"])
+    call(1, "assign_ticket", ticket_id=tid, assignee_id=uid(3))
     with database.begin() as db:
         db.get(Ticket, tid).status = initial
-    if (initial, target) in allowed:
-        assert call(2, "update_ticket_status", ticket_id=tid, status=target)["status"] == target
-    else:
-        with pytest.raises(ServiceError) as error:
-            call(2, "update_ticket_status", ticket_id=tid, status=target)
-        assert error.value.code == 409
-        assert call(2, "get_ticket", ticket_id=tid)["status"] == initial
-    events = call(2, "get_recent_activity", action="update_ticket_status")["items"]
+    assert call(actor, "update_ticket_status", ticket_id=tid, status=target)["status"] == target
+    events = call(actor, "get_recent_activity", action="update_ticket_status")["items"]
     assert len(events) == 1
-    assert events[0]["outcome"] == ("SUCCESS" if (initial, target) in allowed else "FAILED")
+    assert events[0]["outcome"] == "SUCCESS"
+
+
+def test_invalid_ticket_status_is_rejected_and_audited(call):
+    ticket = call(2, "create_ticket", title="Invalid status contract")
+    tid = UUID(ticket["id"])
+    with pytest.raises(ServiceError) as error:
+        call(2, "update_ticket_status", ticket_id=tid, status="INVALID")
+    assert error.value.code == 422
+    assert call(2, "get_ticket", ticket_id=tid)["status"] == "OPEN"
+    events = call(2, "get_recent_activity", action="update_ticket_status")["items"]
+    assert events[0]["outcome"] == "FAILED"
 
 
 def test_leave_self_review_duplicate_decision_and_required_reason(call):

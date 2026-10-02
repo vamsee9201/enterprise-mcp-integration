@@ -66,7 +66,7 @@ flowchart LR
 
 **Leave:** inclusive calendar dates, no overlap with pending or approved requests. Managers review direct reports. No balances, holidays or partial days.
 
-**Tickets:** employees create tickets and can view or update the status of tickets they created or are currently assigned to. Reassignment removes the previous assignee’s access unless they also created the ticket. Managers and admins manage all tickets, including priority and assignment to active users. Transitions are OPEN → IN_PROGRESS → RESOLVED → CLOSED; resolved/closed tickets can reopen to OPEN, and in-progress tickets can return to OPEN.
+**Tickets:** employees create tickets and can view or update the status of tickets they created or are currently assigned to. Reassignment removes the previous assignee’s access unless they also created the ticket. Managers and admins manage all tickets, including priority and assignment to active users. Creators, current assignees, managers, and admins can select any status (OPEN, IN_PROGRESS, RESOLVED, or CLOSED), including skipping steps or reopening a ticket. Status changes are audited.
 
 **Directory:** authenticated users can search seeded employee records by name, email, department or manager name, and filter by department/manager ID.
 

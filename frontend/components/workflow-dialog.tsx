@@ -15,12 +15,6 @@ import {
 import { Badge, Modal, Field } from "./ui";
 import type { View, ModalKind, Mutate } from "../lib/types";
 
-const ticketNext: Record<string, string[]> = {
-  OPEN: ["IN_PROGRESS"],
-  IN_PROGRESS: ["OPEN", "RESOLVED"],
-  RESOLVED: ["CLOSED", "OPEN"],
-  CLOSED: ["OPEN"],
-};
 type Props = {
   modal: ModalKind;
   view: View;
@@ -398,10 +392,6 @@ export function WorkflowDialog({
                     <option
                       key={s}
                       value={s}
-                      disabled={
-                        s !== selected.status &&
-                        !ticketNext[selected.status || "OPEN"].includes(s)
-                      }
                     >
                       {s.replaceAll("_", " ")}
                     </option>
@@ -409,8 +399,8 @@ export function WorkflowDialog({
                 </select>
               </Field>
               <p className="subtle">
-                Open → In progress → Resolved → Closed. Resolved or closed
-                tickets can reopen. Unavailable transitions are disabled.
+                Choose any status, including closing or reopening the ticket.
+                Every change is recorded in Activity.
               </p>
               {manager && (
                 <>

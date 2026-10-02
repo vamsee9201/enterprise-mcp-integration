@@ -235,8 +235,7 @@ def test_ticket_ownership_assignment_and_transitions(call):
     call(1, "assign_ticket", ticket_id=tid, assignee_id=uid(5))
     with pytest.raises(ServiceError):
         call(2, "update_ticket_priority", ticket_id=tid, priority="LOW")
-    with pytest.raises(ServiceError):
-        call(1, "update_ticket_status", ticket_id=tid, status="CLOSED")
+    assert call(1, "update_ticket_status", ticket_id=tid, status="CLOSED")["status"] == "CLOSED"
     for status in ("IN_PROGRESS", "RESOLVED", "CLOSED", "OPEN"):
         assert call(2, "update_ticket_status", ticket_id=tid, status=status)["status"] == status
 

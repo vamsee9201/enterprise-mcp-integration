@@ -540,14 +540,8 @@ class Portal:
     @operation("ticket")
     def update_ticket_status(self, ticket_id, status):
         ticket = self._ticket(ticket_id)
-        transitions = {
-            "OPEN": {"IN_PROGRESS"},
-            "IN_PROGRESS": {"OPEN", "RESOLVED"},
-            "RESOLVED": {"CLOSED", "OPEN"},
-            "CLOSED": {"OPEN"},
-        }
-        if status not in transitions[ticket.status]:
-            raise ServiceError(f"Cannot move ticket from {ticket.status} to {status}", 409)
+        if status not in ("OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"):
+            raise ServiceError("Invalid ticket status", 422)
         ticket.status = status
         return self._dump(ticket)
 

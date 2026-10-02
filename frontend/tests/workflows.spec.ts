@@ -585,8 +585,8 @@ for (const width of [390, 1280]) {
     const status = page.getByLabel("Ticket status", { exact: true });
     await expect(status).toHaveValue("IN_PROGRESS");
     await expect(status.locator("option")).toHaveCount(4);
-    await expect(status.locator('option[value="CLOSED"]')).toBeDisabled();
-    await expect(status.locator('option[value="RESOLVED"]')).toBeEnabled();
+    for (const value of ["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"])
+      await expect(status.locator('option[value="' + value + '"]')).toBeEnabled();
   });
 }
 
@@ -733,4 +733,22 @@ test("filtered ticket pagination preserves search and displays the remaining rec
     .getByRole("button", { name: "Previous page", exact: true })
     .click();
   await expect(page.getByRole("row")).toHaveCount(51);
+});
+
+test("ticket creator can skip directly to resolved or closed and reopen", async ({ page }) => {
+  await login(page, "Dinesh Chugtai");
+  await navigate(page, "Support Tickets");
+  await page.getByRole("button", { name: "New ticket", exact: true }).click();
+  await page.getByLabel("Title", { exact: true }).fill("QA unrestricted status");
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  for (const status of ["RESOLVED", "OPEN", "CLOSED", "IN_PROGRESS"]) {
+    await page.getByRole("button", { name: "View QA unrestricted status", exact: true }).click();
+    await expect(page.getByLabel("Assign ticket")).toHaveCount(0);
+    await expect(page.getByLabel("Priority", { exact: true })).toHaveCount(0);
+    await page.getByLabel("Ticket status").selectOption(status);
+    await expect(page.getByRole("row").filter({ hasText: "QA unrestricted status" })
+      .getByText(status.replaceAll("_", " "), { exact: true })).toBeVisible();
+  }
+  await navigate(page, "Activity");
+  await expect(page.getByText("update_ticket_status", { exact: true }).first()).toBeVisible();
 });
