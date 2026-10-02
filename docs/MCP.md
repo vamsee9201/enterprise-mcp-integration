@@ -158,3 +158,7 @@ Run `make check` for fast backend/MCP/type checks. Run `make verify` with a disp
 Before private deployment: replace demo credentials with OAuth resource-server authentication and protected-resource discovery; map verified issuer/subject to users; replace/restrict the web demo login; configure HTTPS, canonical URLs, trusted proxy handling, secrets and request limits; add optimistic record versions for competing edits. Do not expose this local demo publicly as-is. No OAuth provider, hosting platform, stdio bridge, public plugin, subscriptions or custom MCP UI are included in V1.
 
 Sources: https://gofastmcp.com/deployment/http and https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization. The pinned release negotiates its supported protocol with clients; the latest docs can include newer APIs that are not used here.
+
+## Verified demo records
+
+On October 2, 2026, the Codex CLI completed the employee/manager/admin demonstration using per-action approval review and temporary credentials. Independent database checks confirmed Dinesh’s June 7, 2027 sheet is approved with one seven-hour entry and one creation audit after retry; `Codex MCP demo integration` is done; `Codex MCP demo VPN` is open, assigned to Dinesh, with high priority; and Richard approved Gilfoyle’s June 28 leave. Self-review and employee ticket assignment were denied. Temporary credentials were revoked. These clearly named records remain in the local portal for inspection.

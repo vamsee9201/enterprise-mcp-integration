@@ -457,7 +457,8 @@ def register_tools(server):
         actor_id: UUID | None = None,
         source: Literal["UI", "MCP"] | None = None,
         action: FilterText | None = None,
-        resource_type: Literal["timesheet", "time_entry", "task", "leave", "ticket"] | None = None,
+        resource_type: Literal["timesheet", "time_entry", "task", "leave_request", "ticket"]
+        | None = None,
         outcome: Literal["SUCCESS", "DENIED", "FAILED"] | None = None,
         start_date: date | None = None,
         end_date: date | None = None,

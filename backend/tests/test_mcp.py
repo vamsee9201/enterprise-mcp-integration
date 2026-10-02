@@ -284,6 +284,11 @@ def test_all_module_workflows(endpoint, database):
             await tool(employee, "update_ticket_status", ticket_id=ticket["id"], status="OPEN")
             assert (await tool(employee, "list_tickets", query="MCP VPN"))["total"] == 1
             events = await tool(admin, "get_recent_activity", source="MCP")
+            leave_events = await tool(
+                admin, "get_recent_activity", source="MCP", resource_type="leave_request"
+            )
+            assert leave_events["total"] == 4
+            assert all(event["resource_type"] == "leave_request" for event in leave_events["items"])
             assert events["total"] >= 20
             assert all(e["source"] == "MCP" for e in events["items"])
 
