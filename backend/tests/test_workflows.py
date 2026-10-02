@@ -278,3 +278,31 @@ def test_audit_failure_rolls_back_business_change(call, database, monkeypatch):
     with database() as db:
         assert db.scalar(select(func.count()).select_from(TimeEntry)) == 0
         assert db.scalar(select(func.count()).select_from(Timesheet)) == 0
+
+
+def test_ticket_assignee_access_and_reassignment(call):
+    ticket = call(4, "create_ticket", title="Assigned support work")
+    tid = UUID(ticket["id"])
+    call(4, "assign_ticket", ticket_id=tid, assignee_id=uid(2))
+    assert call(2, "list_tickets", query="Assigned support work")["total"] == 1
+    assert call(2, "get_ticket", ticket_id=tid)["assignee_id"] == str(uid(2))
+    assert (
+        call(2, "update_ticket_status", ticket_id=tid, status="IN_PROGRESS")["status"]
+        == "IN_PROGRESS"
+    )
+    for action, args in [
+        ("assign_ticket", {"assignee_id": uid(3)}),
+        ("update_ticket_priority", {"priority": "LOW"}),
+    ]:
+        with pytest.raises(ServiceError) as error:
+            call(2, action, ticket_id=tid, **args)
+        assert error.value.code == 403
+    assert call(3, "list_tickets", query="Assigned support work")["total"] == 0
+    with pytest.raises(ServiceError):
+        call(3, "update_ticket_status", ticket_id=tid, status="RESOLVED")
+    call(4, "assign_ticket", ticket_id=tid, assignee_id=uid(3))
+    assert call(2, "list_tickets", query="Assigned support work")["total"] == 0
+    with pytest.raises(ServiceError):
+        call(2, "get_ticket", ticket_id=tid)
+    assert call(3, "update_ticket_status", ticket_id=tid, status="RESOLVED")["status"] == "RESOLVED"
+    assert call(4, "get_ticket", ticket_id=tid)["creator_id"] == str(uid(4))

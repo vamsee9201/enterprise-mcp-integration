@@ -489,7 +489,7 @@ class Portal:
     ):
         q = select(Ticket).where(Ticket.title.ilike(f"%{query}%"))
         if self.user.role == "EMPLOYEE":
-            q = q.where(Ticket.creator_id == self.user.id)
+            q = q.where(or_(Ticket.creator_id == self.user.id, Ticket.assignee_id == self.user.id))
         if status:
             q = q.where(Ticket.status == status)
         if priority:
@@ -500,8 +500,11 @@ class Portal:
 
     def _ticket(self, ticket_id):
         ticket = self._load(Ticket, ticket_id)
-        if self.user.role == "EMPLOYEE" and ticket.creator_id != self.user.id:
-            raise ServiceError("You can access only your own tickets", 403)
+        if self.user.role == "EMPLOYEE" and self.user.id not in (
+            ticket.creator_id,
+            ticket.assignee_id,
+        ):
+            raise ServiceError("You can access only tickets you created or are assigned to", 403)
         return ticket
 
     @operation()

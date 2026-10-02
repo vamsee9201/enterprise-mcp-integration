@@ -584,3 +584,69 @@ for (const width of [390, 1280]) {
     await expect(status.locator('option[value="RESOLVED"]')).toBeEnabled();
   });
 }
+
+test("Monica can assign a ticket to Dinesh who can see and work on it", async ({
+  page,
+}) => {
+  await login(page, "Monica Hall");
+  await navigate(page, "Support Tickets");
+  await page.getByRole("button", { name: "New ticket", exact: true }).click();
+  await page
+    .getByLabel("Title", { exact: true })
+    .fill("QA assignee visibility");
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await page
+    .getByRole("button", { name: "View QA assignee visibility", exact: true })
+    .click();
+  await page
+    .getByLabel("Assign ticket")
+    .selectOption({ label: "Dinesh Chugtai" });
+  await expect(
+    page
+      .getByRole("row")
+      .filter({ hasText: "QA assignee visibility" })
+      .getByText("Dinesh Chugtai", { exact: true }),
+  ).toBeVisible();
+  await switchAccount(page, "Dinesh Chugtai");
+  await navigate(page, "Support Tickets");
+  await page
+    .getByRole("button", { name: "View QA assignee visibility", exact: true })
+    .click();
+  await expect(page.getByLabel("Assign ticket")).toHaveCount(0);
+  await expect(page.getByLabel("Priority", { exact: true })).toHaveCount(0);
+  await page.getByLabel("Ticket status").selectOption("IN_PROGRESS");
+  await expect(
+    page
+      .getByRole("row")
+      .filter({ hasText: "QA assignee visibility" })
+      .getByText("IN PROGRESS", { exact: true }),
+  ).toBeVisible();
+  await switchAccount(page, "Jared Dunn");
+  await navigate(page, "Support Tickets");
+  await expect(
+    page.getByRole("button", {
+      name: "View QA assignee visibility",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await switchAccount(page, "Monica Hall");
+  await navigate(page, "Support Tickets");
+  await page
+    .getByRole("button", { name: "View QA assignee visibility", exact: true })
+    .click();
+  await page.getByLabel("Assign ticket").selectOption({ label: "Jared Dunn" });
+  await expect(
+    page
+      .getByRole("row")
+      .filter({ hasText: "QA assignee visibility" })
+      .getByText("Jared Dunn", { exact: true }),
+  ).toBeVisible();
+  await switchAccount(page, "Dinesh Chugtai");
+  await navigate(page, "Support Tickets");
+  await expect(
+    page.getByRole("button", {
+      name: "View QA assignee visibility",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+});
