@@ -49,7 +49,14 @@ class RequestGuard:
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http" or scope["path"] in ("/health", "/ready"):
             return await self.app(scope, receive, send)
-        headers = dict(scope["headers"])
+        raw_headers = scope["headers"]
+        for protected in (b"authorization", b"host", b"origin"):
+            if sum(name.lower() == protected for name, _ in raw_headers) > 1:
+                emit("request_guard", outcome="DENIED", status=400)
+                return await JSONResponse(
+                    {"error": "Duplicate security headers are not allowed"}, status_code=400
+                )(scope, receive, send)
+        headers = dict(raw_headers)
         host = headers.get(b"host", b"").decode()
         origin = headers.get(b"origin", b"").decode()
         if host not in settings.mcp_allowed_hosts or (

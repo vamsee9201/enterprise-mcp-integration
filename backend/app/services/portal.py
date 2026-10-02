@@ -520,6 +520,8 @@ class Portal:
         self._person(task.assignee_id)
         try:
             changes = TaskPatch.changes(args)
+        except ValidationError:
+            raise
         except ValueError as exc:
             raise ServiceError(str(exc), 422) from exc
         if "project_id" in changes:

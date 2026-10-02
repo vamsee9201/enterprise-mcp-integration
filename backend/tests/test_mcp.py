@@ -143,6 +143,14 @@ def test_http_authentication_and_guards(endpoint, database, monkeypatch):
         == 403
     )
     monkeypatch.setattr(settings, "mcp_rate_limit", 1)
+    duplicate_auth = [*authenticated.items(), ("Authorization", "Bearer invalid")]
+    assert httpx.post(url, headers=duplicate_auth, json=body).status_code == 400
+    duplicate_origin = [
+        *authenticated.items(),
+        ("Origin", "https://evil.example"),
+        ("Origin", "http://localhost:3000"),
+    ]
+    assert httpx.post(url, headers=duplicate_origin, json=body).status_code == 400
     assert httpx.post(url, headers=authenticated, json=body).status_code == 200
     assert httpx.post(url, headers=authenticated, json=body).status_code == 429
     with database.begin() as db:
