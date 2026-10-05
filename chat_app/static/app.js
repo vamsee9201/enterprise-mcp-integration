@@ -41,13 +41,22 @@ function showSession() {
 async function select(profile, fresh=false) {
   if (busy) return;
   busy=true; controls(); $('notice').textContent=''; const ticket=++generation;
+  $('profile-loading-label').textContent=fresh ? 'Starting a new chat…' : 'Switching to ' + profile.name + '…';
+  $('profile-loading').hidden=false;
+  $('workspace').inert=true;
+  $('workspace').setAttribute('aria-busy','true');
   try {
     let next;
     if (!fresh) { try { next=await api('/chat/session/'+profile.id); } catch(error) { if (error.status !== 401) throw error; } }
     if (!next) next=await api('/chat/login',{method:'POST',body:JSON.stringify({profile_id:profile.id})});
     if (ticket !== generation) return;
     current=profile; session=next; localStorage.setItem('pied-chat-profile',profile.id); showSession();
-  } catch(error) { $('notice').textContent=error.message; } finally {busy=false;controls();}
+  } catch(error) { $('notice').textContent=error.message; } finally {
+    $('profile-loading').hidden=true;
+    $('workspace').inert=false;
+    $('workspace').setAttribute('aria-busy','false');
+    busy=false;controls();
+  }
 }
 $('composer').onsubmit=async(event)=>{
   event.preventDefault(); const text=$('prompt').value.trim(); if (!text || busy || !session) return;
