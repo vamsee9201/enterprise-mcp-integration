@@ -36,6 +36,8 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: python -m venv .venv
       - run: .venv/bin/pip install -r backend/requirements-dev.txt
+      - run: python -m venv .venv-chat
+      - run: .venv-chat/bin/pip install -r chat_app/requirements.txt pytest==9.0.2
       - run: npm ci --prefix frontend
       - run: npx playwright install --with-deps chromium
         working-directory: frontend

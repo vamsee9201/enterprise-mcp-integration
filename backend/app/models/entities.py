@@ -46,6 +46,15 @@ class SessionToken(Record, Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class ChatConversation(Record, Base):
+    __tablename__ = "chat_conversations"
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    events: Mapped[list] = mapped_column(JSON, default=list)
+    messages: Mapped[list] = mapped_column(JSON, default=list)
+    results: Mapped[dict] = mapped_column(JSON, default=dict)
+    busy_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class Project(Record, Base):
     __tablename__ = "projects"
     name: Mapped[str] = mapped_column(String(100), unique=True)

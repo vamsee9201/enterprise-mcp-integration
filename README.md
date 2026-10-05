@@ -6,6 +6,8 @@ See [MCP setup and Codex demo](docs/MCP.md) for credentials, tools, retry behavi
 
 The portal and MCP server are also deployed as an IAM-protected cloud demo in `ai-lab-502500`. See [cloud deployment and access](docs/DEPLOYMENT.md) for URLs, the browser proxy, cloud credentials, and verification results.
 
+Use the [ADK chat interface](docs/CHAT.md) to select a persona and work through natural language with Gemini 3.8 Flash and the deployed MCP tools.
+
 This release includes the enterprise web application and a local FastMCP server. REST handlers and MCP tools share permissions, validation, workflows, transactions, and auditing.
 
 ## Run locally
@@ -130,10 +132,12 @@ Install the backend development dependencies and frontend dependencies before ru
 python3 -m venv .venv
 .venv/bin/pip install -r backend/requirements-dev.txt
 npm ci --prefix frontend
+python3 -m venv .venv-chat
+.venv-chat/bin/pip install -r chat_app/requirements.txt pytest==9.0.2
 cd frontend && npx playwright install chromium && cd ..
 ```
 
-For quick feedback after edits, run `make check`. It runs Python lint/format checks, the SQLite backend tests, and TypeScript checks. PostgreSQL concurrency tests are intentionally excluded from this fast command.
+For quick feedback after edits, run `make check`. It runs Python lint/format checks, SQLite backend and chat tests, and TypeScript checks. PostgreSQL concurrency tests are intentionally excluded from this fast command.
 
 Before pushing a change, run the complete gate:
 
@@ -143,7 +147,7 @@ docker compose exec -T db createdb -U portal portal_test
 TEST_DATABASE_URL=postgresql+psycopg://portal:portal@localhost:5433/portal_test make verify
 ```
 
-Create the test database once; reuse it on later runs. `make verify` fails if `TEST_DATABASE_URL` is missing. It runs all backend tests, PostgreSQL locking tests, TypeScript checks, a production frontend build, and all browser workflows. Browser servers use ports 3010/8010 and a temporary SQLite database. The production build used by the browser suite points to the isolated test API, while Docker builds continue to use the normal API configuration.
+Create the test database once; reuse it on later runs. `make verify` fails if `TEST_DATABASE_URL` is missing. It runs all backend and chat tests, PostgreSQL locking tests, TypeScript checks, a production frontend build, and all browser workflows. Browser servers use ports 3010/8010 and a temporary SQLite database. The production build used by the browser suite points to the isolated test API, while Docker builds continue to use the normal API configuration.
 
 **Only use a disposable test database.** PostgreSQL tests recreate its tables and refuse URLs without `test` in the database name. Tests do not reset the local demo database. Do not run multiple verification suites simultaneously against the same test database or ports.
 

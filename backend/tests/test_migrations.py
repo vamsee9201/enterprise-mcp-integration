@@ -18,6 +18,7 @@ def test_migration_upgrade_downgrade(tmp_path):
         "leave_requests",
         "tickets",
         "audit_events",
+        "chat_conversations",
     } <= set(inspect(engine).get_table_names())
     engine.dispose()
     subprocess.run([*command, "downgrade", "base"], env=env, check=True)

@@ -1,5 +1,6 @@
 .git
 .venv
+.venv-chat
 .env
 **/__pycache__
 **/node_modules
