@@ -1,0 +1,17 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    id: backend
+    args: [build, -f, backend/Dockerfile, -t, '${_REGISTRY}/enterprise-backend:${_TAG}', .]
+  - name: gcr.io/cloud-builders/docker
+    id: frontend
+    waitFor: ['-']
+    args: [build, -f, frontend/Dockerfile, --build-arg, API_INTERNAL_URL=http://127.0.0.1:8000, -t, '${_REGISTRY}/enterprise-frontend:${_TAG}', .]
+images:
+  - '${_REGISTRY}/enterprise-backend:${_TAG}'
+  - '${_REGISTRY}/enterprise-frontend:${_TAG}'
+substitutions:
+  _REGISTRY: us-central1-docker.pkg.dev/ai-lab-502500/cloud-run-source-deploy
+  _TAG: demo
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 1200s

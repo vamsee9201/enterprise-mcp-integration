@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     demo_mode: bool = False
     app_timezone: str = "America/Chicago"
     web_origin: str = "http://localhost:3000"
+    web_allowed_origins: list[str] = []
     secure_cookies: bool = False
     mcp_auth_mode: str | None = None
     mcp_public_url: str = "http://localhost:8001/mcp"

@@ -42,3 +42,20 @@ def test_theme_refresh_preserves_existing_workflows(call, database):
         assert db.get(Ticket, uid(301)).priority == "LOW"
     assert resolve_token(credential).user_id == uid(2)
     assert call(2, "get_recent_activity")["total"] == 1
+
+
+def test_seed_without_samples_creates_only_demo_reference_data(database):
+    from sqlalchemy import delete, select, func
+    from backend.app.models.entities import Membership
+
+    with database.begin() as db:
+        for model in (Task, Ticket, Membership, Project, User):
+            db.execute(delete(model))
+    seed(include_samples=False)
+    seed(include_samples=False)
+    with database() as db:
+        assert db.scalar(select(func.count()).select_from(User)) == 6
+        assert db.scalar(select(func.count()).select_from(Project)) == 2
+        assert db.scalar(select(func.count()).select_from(Membership)) == 12
+        assert db.scalar(select(func.count()).select_from(Task)) == 0
+        assert db.scalar(select(func.count()).select_from(Ticket)) == 0

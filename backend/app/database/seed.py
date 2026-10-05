@@ -81,7 +81,7 @@ def refresh_sample(record, fields):
             setattr(record, key, themed)
 
 
-def seed():
+def seed(include_samples=True):
     today = datetime.now(ZoneInfo(settings.app_timezone)).date()
     with SessionLocal.begin() as db:
         for data in USERS:
@@ -102,6 +102,9 @@ def seed():
             for data in USERS:
                 if not db.get(Membership, (uid(n), data["id"])):
                     db.add(Membership(project_id=uid(n), user_id=data["id"]))
+
+        if not include_samples:
+            return
 
         samples = [
             (

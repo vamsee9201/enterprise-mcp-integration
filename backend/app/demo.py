@@ -10,7 +10,8 @@ from backend.app.auth.context import ServiceError
 def main():
     parser = argparse.ArgumentParser(description="Local demo administration")
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("seed")
+    seed_command = commands.add_parser("seed")
+    seed_command.add_argument("--no-samples", action="store_true")
     issue = commands.add_parser("issue-mcp-token")
     issue.add_argument("--user-id", type=UUID, required=True)
     issue.add_argument("--scope", action="append", dest="scopes")
@@ -22,7 +23,7 @@ def main():
         parser.error("Set DEMO_MODE=true explicitly to enable demo administration")
     try:
         if args.command == "seed":
-            seed()
+            seed(include_samples=not args.no_samples)
             print("Demo data seeded.")
         elif args.command == "issue-mcp-token":
             token, credential_id = issue_mcp_token(args.user_id, args.scopes, args.hours)

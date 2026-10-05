@@ -9,19 +9,26 @@ from datetime import date, timedelta
 from pathlib import Path
 from uuid import uuid4
 from fastmcp import Client
+from fastmcp.client.transports import StreamableHttpTransport
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 
-async def demonstrate(url, employee_token, manager_token, admin_token, week):
+async def demonstrate(url, employee_token, manager_token, admin_token, week, cloud_run_token=None):
     async def invoke(client, name, **args):
         result = await client.call_tool(name, args)
         return result.structured_content
 
+    def connect(token):
+        headers = (
+            {"X-Serverless-Authorization": f"Bearer {cloud_run_token}"} if cloud_run_token else None
+        )
+        return Client(StreamableHttpTransport(url, auth=token, headers=headers), timeout=60)
+
     async with (
-        Client(url, auth=employee_token, timeout=15) as employee,
-        Client(url, auth=manager_token, timeout=15) as manager,
-        Client(url, auth=admin_token, timeout=15) as admin,
+        connect(employee_token) as employee,
+        connect(manager_token) as manager,
+        connect(admin_token) as admin,
     ):
         context = (await invoke(employee, "get_my_context"))["record"]
         manager_context = (await invoke(manager, "get_my_context"))["record"]
@@ -131,7 +138,15 @@ def main():
         parser.error("Set the three PIED_PIPER persona token environment variables")
     print(
         json.dumps(
-            asyncio.run(demonstrate(args.url, *(os.environ[n] for n in names), args.week)), indent=2
+            asyncio.run(
+                demonstrate(
+                    args.url,
+                    *(os.environ[n] for n in names),
+                    args.week,
+                    os.environ.get("CLOUD_RUN_ID_TOKEN"),
+                )
+            ),
+            indent=2,
         )
     )
 

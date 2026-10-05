@@ -4,6 +4,8 @@ A Silicon Valley–themed Pied Piper enterprise portal for everyday work: timesh
 
 See [MCP setup and Codex demo](docs/MCP.md) for credentials, tools, retry behavior, and connection instructions.
 
+The portal and MCP server are also deployed as an IAM-protected cloud demo in `ai-lab-502500`. See [cloud deployment and access](docs/DEPLOYMENT.md) for URLs, the browser proxy, cloud credentials, and verification results.
+
 This release includes the enterprise web application and a local FastMCP server. REST handlers and MCP tools share permissions, validation, workflows, transactions, and auditing.
 
 ## Run locally

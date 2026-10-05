@@ -240,3 +240,36 @@ def test_session_rotation_stores_hash_and_reloads_account_permissions(client, lo
 
 def test_browser_fixture_reset_is_not_an_application_endpoint(client):
     assert client.post("/api/v1/__test/reset").status_code == 404
+
+
+def test_explicit_proxy_origin_keeps_csrf_and_origin_checks(client, monkeypatch):
+    proxy_origin = "http://localhost:3300"
+    monkeypatch.setattr(settings, "web_origin", "https://portal.example")
+    monkeypatch.setattr(settings, "web_allowed_origins", [proxy_origin])
+    response = client.post(
+        "/api/v1/auth/demo-login",
+        json={"user_id": str(uid(2))},
+        headers={"Origin": proxy_origin},
+    )
+    assert response.status_code == 200
+    headers = {"Origin": proxy_origin, "X-CSRF-Token": response.json()["csrf_token"]}
+    assert (
+        client.post("/api/v1/tickets", json={"title": "Proxy demo"}, headers=headers).status_code
+        == 200
+    )
+    assert (
+        client.post(
+            "/api/v1/tickets",
+            json={"title": "Forbidden"},
+            headers={**headers, "Origin": "https://attacker.example"},
+        ).status_code
+        == 403
+    )
+    assert (
+        client.post(
+            "/api/v1/tickets",
+            json={"title": "Missing CSRF"},
+            headers={"Origin": proxy_origin},
+        ).status_code
+        == 403
+    )

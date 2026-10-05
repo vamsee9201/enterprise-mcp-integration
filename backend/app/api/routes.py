@@ -46,13 +46,17 @@ Offset = Annotated[int, Query(ge=0)]
 RetryKey = Annotated[UUID | None, Header(alias="Idempotency-Key")]
 
 
+def valid_web_origin(origin: str | None):
+    return origin in {settings.web_origin, *settings.web_allowed_origins}
+
+
 def actor(request: Request):
     session = resolve_token(request.cookies.get("portal_session", ""))
     if request.method not in ("GET", "HEAD", "OPTIONS"):
         csrf = request.headers.get("x-csrf-token", "")
         if not secrets.compare_digest(csrf, session.csrf_token or ""):
             raise ServiceError("Invalid CSRF token", 403)
-        if request.headers.get("origin") != settings.web_origin:
+        if not valid_web_origin(request.headers.get("origin")):
             raise ServiceError("Invalid request origin", 403)
     return ActorContext(session.user_id, "UI", str(uuid4()))
 
@@ -77,7 +81,7 @@ def demo_accounts():
 def demo_login(body: DemoLogin, request: Request, response: Response):
     if not settings.demo_mode:
         raise ServiceError("Demo login is disabled", 404)
-    if request.headers.get("origin") != settings.web_origin:
+    if not valid_web_origin(request.headers.get("origin")):
         raise ServiceError("Invalid request origin", 403)
     # Seed CLI owns the demo account allowlist; arbitrary created accounts cannot log in.
     from backend.app.database.seed import USERS

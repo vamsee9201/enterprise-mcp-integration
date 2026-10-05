@@ -1,0 +1,15 @@
+.gcloudignore
+.git
+.gitignore
+#!include:.gitignore
+ai-lab-fasa.json
+**/*service-account*.json
+.secrets/
+.gcloud/
+.agents/
+.codex/
+frontend/node_modules/
+frontend/.next/
+frontend/test-results/
+frontend/playwright-report/
+docs/test-evidence/

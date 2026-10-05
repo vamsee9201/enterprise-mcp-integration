@@ -7,3 +7,9 @@
 **/*.db
 **/test-results
 **/playwright-report
+
+ai-lab-fasa.json
+
+.gcloud/
+
+.secrets/

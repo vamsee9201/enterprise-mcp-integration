@@ -9,3 +9,9 @@ frontend/.next/
 frontend/playwright-report/
 frontend/test-results/
 frontend/tsconfig.tsbuildinfo
+
+ai-lab-fasa.json
+
+.gcloud/
+
+.secrets/

@@ -4,8 +4,8 @@ PYTHON ?= .venv/bin/python
 RUFF ?= .venv/bin/ruff
 
 lint:
-	$(RUFF) check backend scripts mcp_server
-	$(RUFF) format --check backend scripts mcp_server
+	$(RUFF) check backend scripts mcp_server deploy
+	$(RUFF) format --check backend scripts mcp_server deploy
 
 # Fast feedback; intentionally excludes PostgreSQL-only concurrency checks.
 check: lint
