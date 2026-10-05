@@ -4,6 +4,8 @@ The chat service uses **Google ADK 2.11.0**, **Gemini 3.8 Flash** through Vertex
 
 Cloud service: https://enterprise-chat-q7la2lmmlq-uc.a.run.app
 
+See the [live deployment QA report](CHAT_QA_2026-10-05.md) for browser evidence, automated results, and observed model response-time limitations.
+
 The service is private behind Cloud Run IAM, like the enterprise portal. For a browser demonstration, start an authenticated proxy:
 
 ```sh
@@ -78,3 +80,5 @@ gcloud run services replace .secrets/cloudrun/chat.json --project=ai-lab-502500 
 The chat build also produces the backend image for migrations. It does not redeploy the portal or MCP service. The runtime uses the database URL secret, `GOOGLE_GENAI_USE_VERTEXAI=true`, project `ai-lab-502500`, global model location, and an explicit browser origin allowlist. Maximum two instances, concurrency four, one worker, zero minimum instances. Model requests incur Vertex AI usage charges in addition to the existing cloud database/runtime costs.
 
 Public employee-facing deployment still requires real sign-in and an identity-to-account mapping. Do not make the persona selector publicly accessible.
+
+Implementation references: [official ADK MCP integration](https://adk.dev/tools-custom/mcp-tools/) and [Google's Gemini 3.8 Flash guide](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/guides/gemini-3-8-flash).
