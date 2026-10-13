@@ -224,7 +224,7 @@ Keep the portal open beside Codex. Visible views refresh every ten seconds, afte
 
 These requests create real demo records. An ambiguous name should lead to clarification. A submitted or approved timesheet cannot be edited, and a permission denial should remain a denial regardless of how the request is phrased.
 
-The [three-persona demo guide](docs/MCP_DEMO.md) includes presentation prompts. The [MCP reference](docs/MCP.md) contains detailed tool contracts and retry behavior; it includes Firestore setup and current runtime contracts.
+The [three-persona demo guide](docs/MCP.md) includes presentation prompts. The [MCP reference](docs/MCP.md) contains detailed tool contracts and retry behavior; it includes Firestore setup and current runtime contracts.
 
 ## Workflows and permissions
 
