@@ -1,0 +1,11 @@
+{
+  "indexes": [],
+  "fieldOverrides": [
+    {"collectionGroup": "messages", "fieldPath": "value", "indexes": []},
+    {"collectionGroup": "events", "fieldPath": "value", "indexes": []},
+    {"collectionGroup": "results", "fieldPath": "value", "indexes": []},
+    {"collectionGroup": "audit_events", "fieldPath": "details", "indexes": []},
+    {"collectionGroup": "idempotency_records", "fieldPath": "result", "indexes": []},
+    {"collectionGroup": "sessions", "fieldPath": "csrf_token", "indexes": []}
+  ]
+}

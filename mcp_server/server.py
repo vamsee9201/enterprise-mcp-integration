@@ -1,5 +1,9 @@
 """FastMCP factory; the application fails closed outside explicit local demo mode."""
 
+from uuid import UUID
+from backend.app.models.entities import User
+
+
 from datetime import timezone
 from anyio import to_thread
 from fastmcp import FastMCP
@@ -7,7 +11,6 @@ from fastmcp.server.auth import AccessToken, TokenVerifier
 from fastmcp.server.middleware import Middleware
 from starlette.middleware import Middleware as ASGIMiddleware
 from starlette.responses import JSONResponse
-from sqlalchemy import text
 from backend.app.config import settings
 from backend.app.auth import tokens
 from backend.app.auth.context import ServiceError
@@ -113,13 +116,11 @@ def create_server():
     async def ready(request):
         def check():
             with connection.SessionLocal() as db:
-                db.execute(text("SELECT 1"))
-                db.execute(text("SELECT scopes FROM sessions LIMIT 1"))
-                db.execute(text("SELECT id FROM idempotency_records LIMIT 1"))
+                db.get(User, UUID("00000000-0000-4000-8000-000000000001"))
 
         try:
             await to_thread.run_sync(check)
-            return JSONResponse({"status": "ready"})
+            return JSONResponse({"status": "ready", "storage": "firestore"})
         except Exception:
             return JSONResponse({"status": "unavailable"}, status_code=503)
 

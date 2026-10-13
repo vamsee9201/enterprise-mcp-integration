@@ -3,7 +3,7 @@ from datetime import date
 from typing import Annotated, Literal
 from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, Request, Response, Query, Header
-from sqlalchemy import select
+from backend.app.database.query import select
 from backend.app.config import settings
 from backend.app.auth.context import ActorContext, ServiceError
 from backend.app.auth.tokens import issue_token, resolve_token, revoke_token

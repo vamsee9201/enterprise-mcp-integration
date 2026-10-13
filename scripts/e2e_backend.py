@@ -3,42 +3,40 @@
 import os
 from pathlib import Path
 import sys
-import tempfile
 import atexit
 import subprocess
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-fd, filename = tempfile.mkstemp(prefix="orbit-browser-", suffix=".db")
-os.close(fd)
-atexit.register(lambda: Path(filename).unlink(missing_ok=True))
+from uuid import uuid4
+import socket
+
+with socket.socket() as listener:
+    listener.bind(("127.0.0.1", 0))
+    mcp_port = listener.getsockname()[1]
+
 os.environ.update(
-    DATABASE_URL=f"sqlite:///{filename}",
+    FIRESTORE_NAMESPACE="test-browser-" + str(uuid4()),
     DEMO_MODE="true",
-    WEB_ORIGIN="http://localhost:3010",
+    WEB_ORIGIN="http://localhost:3020",
     MCP_AUTH_MODE="demo",
-    MCP_ALLOWED_HOSTS='["127.0.0.1:8011"]',
+    MCP_ALLOWED_HOSTS=f'["127.0.0.1:{mcp_port}"]',
     MCP_RATE_LIMIT="10000",
 )
-subprocess.run(
-    [sys.executable, "-m", "alembic", "-c", "backend/alembic.ini", "upgrade", "head"],
-    check=True,
-    cwd=Path(__file__).resolve().parents[1],
-)
+if not os.environ.get("FIRESTORE_EMULATOR_HOST"):
+    raise RuntimeError("Browser tests require the Firestore emulator")
 from backend.app.database.seed import seed
 
 seed()
 import uvicorn
 from backend.app.main import app
-from backend.app.database.connection import Base, engine
+from backend.app.database.connection import SessionLocal
 
 
 @app.post("/api/v1/__test/reset", include_in_schema=False)
 def reset_browser_fixture():
     # Registered only by this isolated harness, never by the application or Docker.
     # Playwright runs one worker and closes each test's browser context before reset.
-    with engine.begin() as connection:
-        for table in reversed(Base.metadata.sorted_tables):
-            connection.execute(table.delete())
+    SessionLocal.reset()
     seed()
     return {"ok": True}
 
@@ -52,7 +50,7 @@ mcp_process = subprocess.Popen(
         "--host",
         "127.0.0.1",
         "--port",
-        "8011",
+        str(mcp_port),
         "--log-level",
         "error",
     ]
@@ -89,11 +87,11 @@ async def browser_mcp_demo():
     ]
     try:
         return await demonstrate(
-            "http://127.0.0.1:8011/mcp", *(pair[0] for pair in issued), date(2027, 3, 1)
+            f"http://127.0.0.1:{mcp_port}/mcp", *(pair[0] for pair in issued), date(2027, 3, 1)
         )
     finally:
         for _, credential_id in issued:
             revoke_mcp_credential(credential_id)
 
 
-uvicorn.run(app, host="127.0.0.1", port=8010)
+uvicorn.run(app, host="127.0.0.1", port=8020)

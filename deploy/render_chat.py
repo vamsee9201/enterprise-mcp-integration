@@ -18,7 +18,6 @@ def render(project, number, tag, url, output):
             "template": {
                 "metadata": {
                     "annotations": {
-                        "run.googleapis.com/cloudsql-instances": f"{project}:{region}:enterprise-portal-db",
                         "run.googleapis.com/execution-environment": "gen2",
                         "autoscaling.knative.dev/maxScale": "2",
                     }
@@ -38,15 +37,9 @@ def render(project, number, tag, url, output):
                                 "failureThreshold": 24,
                             },
                             "env": [
-                                {
-                                    "name": "DATABASE_URL",
-                                    "valueFrom": {
-                                        "secretKeyRef": {
-                                            "name": "enterprise-portal-database-url",
-                                            "key": "1",
-                                        }
-                                    },
-                                },
+                                {"name": "FIRESTORE_PROJECT", "value": project},
+                                {"name": "FIRESTORE_DATABASE", "value": "enterprise-portal"},
+                                {"name": "FIRESTORE_NAMESPACE", "value": "portal"},
                                 {"name": "DEMO_MODE", "value": "true"},
                                 {"name": "SECURE_COOKIES", "value": "true"},
                                 {"name": "GOOGLE_GENAI_USE_VERTEXAI", "value": "true"},

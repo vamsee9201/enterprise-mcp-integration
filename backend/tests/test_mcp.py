@@ -11,7 +11,7 @@ import httpx
 import pytest
 import uvicorn
 from fastmcp import Client
-from sqlalchemy import select, func
+from backend.app.database.query import select, func
 from backend.app.config import settings
 from backend.app.auth import tokens
 from backend.app.auth.context import ServiceError, ActorContext
@@ -61,7 +61,7 @@ def endpoint(mcp_http):
         yield url
     finally:
         server.should_exit = True
-        thread.join(timeout=10)
+        thread.join(timeout=30)
         assert not thread.is_alive()
 
 
@@ -77,7 +77,7 @@ async def tool(client, name, **args):
 
 def test_inventory_and_contracts(endpoint):
     async def scenario():
-        async with Client(endpoint, timeout=5, auth=credential()) as c:
+        async with Client(endpoint, timeout=30, auth=credential()) as c:
             tools = await c.list_tools()
             assert len(tools) == 33
             for t in tools:
@@ -174,7 +174,7 @@ def test_http_authentication_and_guards(endpoint, database, monkeypatch):
 def test_all_module_workflows(endpoint, database):
     async def scenario():
         async with (
-            Client(endpoint, timeout=5, auth=credential(2)) as employee,
+            Client(endpoint, timeout=30, auth=credential(2)) as employee,
             Client(
                 endpoint, auth=credential(1, ["portal:read", "portal:write", "portal:review"])
             ) as manager,
@@ -315,9 +315,9 @@ def test_all_module_workflows(endpoint, database):
 def test_scopes_roles_and_identity_isolation(endpoint, database):
     async def scenario():
         async with (
-            Client(endpoint, timeout=5, auth=credential(2, ["portal:read"])) as read_only,
-            Client(endpoint, timeout=5, auth=credential(3)) as other,
-            Client(endpoint, timeout=5, auth=credential(2)) as employee,
+            Client(endpoint, timeout=30, auth=credential(2, ["portal:read"])) as read_only,
+            Client(endpoint, timeout=30, auth=credential(3)) as other,
+            Client(endpoint, timeout=30, auth=credential(2)) as employee,
         ):
             contexts = await asyncio.gather(
                 tool(employee, "get_my_context"), tool(other, "get_my_context")
@@ -411,7 +411,7 @@ def test_fail_closed_and_credential_grants(database, monkeypatch):
 
 
 @pytest.fixture
-def pg_endpoint(postgres_database, monkeypatch):
+def pg_endpoint(firestore_database, monkeypatch):
     monkeypatch.setattr(settings, "mcp_auth_mode", "demo")
     monkeypatch.setattr(settings, "mcp_rate_limit", 10000)
     server, thread, url = start_server(monkeypatch)
@@ -419,24 +419,24 @@ def pg_endpoint(postgres_database, monkeypatch):
         yield url
     finally:
         server.should_exit = True
-        thread.join(timeout=10)
+        thread.join(timeout=30)
         assert not thread.is_alive()
 
 
-@pytest.mark.postgres
-def test_mcp_postgres_retries_and_workflow_races(pg_endpoint, postgres_database):
+@pytest.mark.firestore
+def test_mcp_firestore_retries_and_workflow_races(pg_endpoint, firestore_database):
     async def scenario():
         async with (
-            Client(pg_endpoint, timeout=10, auth=credential(2)) as a,
-            Client(pg_endpoint, timeout=10, auth=credential(2)) as b,
+            Client(pg_endpoint, timeout=30, auth=credential(2)) as a,
+            Client(pg_endpoint, timeout=30, auth=credential(2)) as b,
             Client(
                 pg_endpoint,
-                timeout=10,
+                timeout=30,
                 auth=credential(1, ["portal:read", "portal:write", "portal:review"]),
             ) as manager,
             Client(
                 pg_endpoint,
-                timeout=10,
+                timeout=30,
                 auth=credential(6, ["portal:read", "portal:write", "portal:review"]),
             ) as admin,
         ):
@@ -484,7 +484,7 @@ def test_mcp_postgres_retries_and_workflow_races(pg_endpoint, postgres_database)
             assert sum(r.is_error for r in decisions) == 1
 
     asyncio.run(scenario())
-    with postgres_database() as db:
+    with firestore_database() as db:
         assert (
             db.scalar(
                 select(func.count())

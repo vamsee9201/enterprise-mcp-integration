@@ -7,8 +7,8 @@ from zoneinfo import ZoneInfo
 from backend.app.config import settings
 from datetime import date, timedelta, datetime, timezone
 from decimal import Decimal
-from sqlalchemy import select, func, or_
-from sqlalchemy.exc import IntegrityError
+from backend.app.database.query import select, func, or_
+from backend.app.database.connection import IntegrityError
 from pydantic import ValidationError
 from fastapi.encoders import jsonable_encoder
 from backend.app.database.connection import SessionLocal
@@ -52,97 +52,21 @@ def monday(value: date):
 
 
 def run(actor: ActorContext, operation_name: str, *, idempotency_key=None, **args):
-    """One transaction per business operation, with atomic success audits.
-
-    Actor locks serialize a user's entry totals / leave overlap checks in PostgreSQL.
-    Resource locks serialize review decisions. The identity and role are reloaded.
-    """
     if operation_name not in OPERATIONS:
         raise ServiceError("Unknown operation", 404)
     resource = OPERATIONS[operation_name]
-    with SessionLocal() as db:
-        try:
-            query = select(User).where(User.id == actor.user_id, User.active.is_(True))
-            if resource:
-                query = query.with_for_update()
-            user = db.scalar(query)
-            if not user:
-                raise ServiceError("Account unavailable", 401)
-            service = Portal(db, user, bool(resource))
-            fingerprint = None
-            if idempotency_key is not None:
-                models = {
-                    "add_time_entry": TimeEntryInput,
-                    "create_task": TaskInput,
-                    "request_leave": LeaveInput,
-                    "create_ticket": TicketInput,
-                }
-                if operation_name not in models:
-                    raise ServiceError("Retry keys are supported only for creation operations", 422)
-                normalized = models[operation_name](**args).model_dump(mode="json")
-                if "hours" in normalized:
-                    normalized["hours"] = str(Decimal(normalized["hours"]).normalize())
-                fingerprint = hashlib.sha256(
-                    json.dumps(normalized, sort_keys=True).encode()
-                ).hexdigest()
-                saved = db.scalar(
-                    select(IdempotencyRecord).where(
-                        IdempotencyRecord.actor_id == user.id,
-                        IdempotencyRecord.operation == operation_name,
-                        IdempotencyRecord.key == idempotency_key,
-                    )
-                )
-                if saved:
-                    if saved.fingerprint != fingerprint:
-                        raise ServiceError("Idempotency key reused with different arguments", 409)
-                    record = saved.result
-                    if operation_name == "add_time_entry":
-                        service.get_timesheet(UUID(record["timesheet_id"]))
-                    else:
-                        reader = {
-                            "create_task": "get_task",
-                            "request_leave": "get_leave_request",
-                            "create_ticket": "get_ticket",
-                        }[operation_name]
-                        getattr(service, reader)(UUID(record["id"]))
-                    return {**record, "replayed": True}
-            result = getattr(service, operation_name)(**args)
-            if fingerprint is not None:
-                db.add(
-                    IdempotencyRecord(
-                        actor_id=user.id,
-                        operation=operation_name,
-                        key=idempotency_key,
-                        fingerprint=fingerprint,
-                        result=result,
-                    )
-                )
-                result = {**result, "replayed": False}
-            if resource:
-                db.add(
-                    AuditEvent(
-                        actor_id=user.id,
-                        source=actor.source,
-                        action=operation_name,
-                        resource_type=resource,
-                        resource_id=str(result.get("id") or ""),
-                        outcome="SUCCESS",
-                        request_id=actor.request_id,
-                        details={"status": result.get("status")},
-                    )
-                )
-            db.commit()
-            return result
-        except (ServiceError, ValidationError, IntegrityError) as exc:
-            db.rollback()
-            if isinstance(exc, ValidationError):
-                error = ServiceError(
-                    "Invalid input: " + "; ".join(e["msg"] for e in exc.errors()), 422
-                )
-            elif isinstance(exc, IntegrityError):
-                error = ServiceError("Record changed concurrently; refresh and retry", 409)
-            else:
-                error = exc
+    try:
+        if resource:
+            return SessionLocal.atomic(lambda: _run(actor, operation_name, idempotency_key, args))
+        return _run(actor, operation_name, idempotency_key, args)
+    except (ServiceError, ValidationError, IntegrityError) as exc:
+        if isinstance(exc, ValidationError):
+            error = ServiceError("Invalid input: " + "; ".join(e["msg"] for e in exc.errors()), 422)
+        elif isinstance(exc, IntegrityError):
+            error = ServiceError("Record changed concurrently; refresh and retry", 409)
+        else:
+            error = exc
+        with SessionLocal.begin() as db:
             if resource and db.get(User, actor.user_id):
                 db.add(
                     AuditEvent(
@@ -164,7 +88,86 @@ def run(actor: ActorContext, operation_name: str, *, idempotency_key=None, **arg
                     )
                 )
                 db.commit()
-            raise error from exc
+        raise error from exc
+
+
+def _run(actor, operation_name, idempotency_key, args):
+    resource = OPERATIONS[operation_name]
+    with SessionLocal() as db:
+        if resource:
+            db.guard(actor.user_id)
+        query = select(User).where(User.id == actor.user_id, User.active.is_(True))
+        if resource:
+            query = query.with_for_update()
+        user = db.scalar(query)
+        if not user:
+            raise ServiceError("Account unavailable", 401)
+        service = Portal(db, user, bool(resource))
+        fingerprint = None
+        if idempotency_key is not None:
+            models = {
+                "add_time_entry": TimeEntryInput,
+                "create_task": TaskInput,
+                "request_leave": LeaveInput,
+                "create_ticket": TicketInput,
+            }
+            if operation_name not in models:
+                raise ServiceError("Retry keys are supported only for creation operations", 422)
+            normalized = models[operation_name](**args).model_dump(mode="json")
+            if "hours" in normalized:
+                normalized["hours"] = str(Decimal(normalized["hours"]).normalize())
+            fingerprint = hashlib.sha256(
+                json.dumps(normalized, sort_keys=True).encode()
+            ).hexdigest()
+            saved = db.scalar(
+                select(IdempotencyRecord).where(
+                    IdempotencyRecord.actor_id == user.id,
+                    IdempotencyRecord.operation == operation_name,
+                    IdempotencyRecord.key == idempotency_key,
+                )
+            )
+            if saved:
+                if saved.fingerprint != fingerprint:
+                    raise ServiceError("Idempotency key reused with different arguments", 409)
+                record = saved.result
+                if operation_name == "add_time_entry":
+                    service.get_timesheet(UUID(record["timesheet_id"]))
+                else:
+                    reader = {
+                        "create_task": "get_task",
+                        "request_leave": "get_leave_request",
+                        "create_ticket": "get_ticket",
+                    }[operation_name]
+                    getattr(service, reader)(UUID(record["id"]))
+                return {**record, "replayed": True}
+        result = getattr(service, operation_name)(**args)
+        if fingerprint is not None:
+            db.add(
+                IdempotencyRecord(
+                    actor_id=user.id,
+                    operation=operation_name,
+                    key=idempotency_key,
+                    fingerprint=fingerprint,
+                    result=result,
+                )
+            )
+            result = {**result, "replayed": False}
+        if resource:
+            db.add(
+                AuditEvent(
+                    actor_id=user.id,
+                    source=actor.source,
+                    action=operation_name,
+                    resource_type=resource,
+                    resource_id=str(result.get("id") or ""),
+                    outcome="SUCCESS",
+                    request_id=actor.request_id,
+                    details={"status": result.get("status")},
+                )
+            )
+        if resource:
+            db.commit()
+        return result
 
 
 class Portal:
@@ -172,10 +175,7 @@ class Portal:
         self.db, self.user, self.writing = db, user, writing
 
     def _load(self, model, record_id):
-        query = select(model).where(model.id == record_id)
-        if self.writing and model in (Timesheet, TimeEntry, Task, LeaveRequest, Ticket):
-            query = query.with_for_update()
-        obj = self.db.scalar(query)
+        obj = self.db.get(model, record_id)
         if not obj:
             raise ServiceError("Record not found", 404)
         return obj
@@ -205,7 +205,7 @@ class Portal:
             raise ServiceError("Manager permission required", 403)
 
     def _dump(self, obj):
-        values = {column.name: getattr(obj, column.name) for column in obj.__table__.columns}
+        values = {name: getattr(obj, name) for name in obj.fields}
         values = {
             key: value.replace(tzinfo=timezone.utc)
             if isinstance(value, datetime) and value.tzinfo is None

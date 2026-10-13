@@ -45,7 +45,7 @@ def test_theme_refresh_preserves_existing_workflows(call, database):
 
 
 def test_seed_without_samples_creates_only_demo_reference_data(database):
-    from sqlalchemy import delete, select, func
+    from backend.app.database.query import delete, select, func
     from backend.app.models.entities import Membership
 
     with database.begin() as db:

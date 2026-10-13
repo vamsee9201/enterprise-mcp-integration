@@ -1,0 +1,430 @@
+{
+  "User": {
+    "collection": "users",
+    "fields": {
+      "name": {
+        "type": "VARCHAR(100)",
+        "default": null
+      },
+      "email": {
+        "type": "VARCHAR(200)",
+        "default": null
+      },
+      "role": {
+        "type": "VARCHAR(20)",
+        "default": null
+      },
+      "department": {
+        "type": "VARCHAR(100)",
+        "default": null
+      },
+      "manager_id": {
+        "type": "CHAR(32)",
+        "default": null
+      },
+      "active": {
+        "type": "BOOLEAN",
+        "default": true
+      },
+      "id": {
+        "type": "CHAR(32)",
+        "default": "__uuid__"
+      },
+      "created_at": {
+        "type": "DATETIME",
+        "default": "__now__"
+      }
+    }
+  },
+  "SessionToken": {
+    "collection": "sessions",
+    "fields": {
+      "token_hash": {
+        "type": "VARCHAR(64)",
+        "default": null
+      },
+      "user_id": {
+        "type": "CHAR(32)",
+        "default": null
+      },
+      "kind": {
+        "type": "VARCHAR(10)",
+        "default": null
+      },
+      "scopes": {
+        "type": "JSON",
+        "default": "__list__"
+      },
+      "rate_window": {
+        "type": "DATETIME",
+        "default": null
+      },
+      "rate_count": {
+        "type": "INTEGER",
+        "default": 0
+      },
+      "csrf_token": {
+        "type": "VARCHAR(100)",
+        "default": null
+      },
+      "expires_at": {
+        "type": "DATETIME",
+        "default": null
+      },
+      "id": {
+        "type": "CHAR(32)",
+        "default": "__uuid__"
+      },
+      "created_at": {
+        "type": "DATETIME",
+        "default": "__now__"
+      }
+    }
+  },
+  "ChatConversation": {
+    "collection": "chat_conversations",
+    "fields": {
+      "user_id": {
+        "type": "CHAR(32)",
+        "default": null
+      },
+      "events": {
+        "type": "JSON",
+        "default": "__list__"
+      },
+      "messages": {
+        "type": "JSON",
+        "default": "__list__"
+      },
+      "results": {
+        "type": "JSON",
+        "default": "__dict__"
+      },
+      "busy_until": {
+        "type": "DATETIME",
+        "default": null
+      },
+      "id": {
+        "type": "CHAR(32)",
+        "default": "__uuid__"
+      },
+      "created_at": {
+        "type": "DATETIME",
+        "default": "__now__"
+      }
+    }
+  },
+  "Project": {
+    "collection": "projects",
+    "fields": {
+      "name": {
+        "type": "VARCHAR(100)",
+        "default": null
+      },
+      "description": {
+        "type": "VARCHAR(1000)",
+        "default": null
+      },
+      "active": {
+        "type": "BOOLEAN",
+        "default": true
+      },
+      "id": {
+        "type": "CHAR(32)",
+        "default": "__uuid__"
+      },
+      "created_at": {
+        "type": "DATETIME",
+        "default": "__now__"
+      }
+    }
+  },
+  "Membership": {
+    "collection": "project_memberships",
+    "fields": {
+      "project_id": {
+        "type": "CHAR(32)",
+        "default": null
+      },
+      "user_id": {
+        "type": "CHAR(32)",
+        "default": null
+      }
+    }
+  },
+  "Timesheet": {
+    "collection": "timesheets",
+    "fields": {
+      "user_id": {
+        "type": "CHAR(32)",
+        "default": null
+      },
+      "week_start": {
+        "type": "DATE",
+        "default": null
+      },
+      "status": {
+        "type": "VARCHAR(20)",
+        "default": "DRAFT"
+      },
+      "submitted_at": {
+        "type": "DATETIME",
+        "default": null
+      },
+      "reviewer_id": {
+        "type": "CHAR(32)",
+        "default": null
+      },
+      "reviewed_at": {
+        "type": "DATETIME",
+        "default": null
+      },
+      "rejection_reason": {
+        "type": "VARCHAR(1000)",
+        "default": null
+      },
+      "id": {
+        "type": "CHAR(32)",
+        "default": "__uuid__"
+      },
+      "created_at": {
+        "type": "DATETIME",
+        "default": "__now__"
+      }
+    }
+  },
+  "TimeEntry": {
+    "collection": "time_entries",
+    "fields": {
+      "timesheet_id": {
+        "type": "CHAR(32)",
+        "default": null
+      },
+      "project_id": {
+        "type": "CHAR(32)",
+        "default": null
+      },
+      "work_date": {
+        "type": "DATE",
+        "default": null
+      },
+      "hours": {
+        "type": "NUMERIC(5, 2)",
+        "default": null
+      },
+      "description": {
+        "type": "VARCHAR(1000)",
+        "default": null
+      },
+      "id": {
+        "type": "CHAR(32)",
+        "default": "__uuid__"
+      },
+      "created_at": {
+        "type": "DATETIME",
+        "default": "__now__"
+      }
+    }
+  },
+  "Task": {
+    "collection": "tasks",
+    "fields": {
+      "title": {
+        "type": "VARCHAR(200)",
+        "default": null
+      },
+      "description": {
+        "type": "VARCHAR(2000)",
+        "default": ""
+      },
+      "project_id": {
+        "type": "CHAR(32)",
+        "default": null
+      },
+      "due_date": {
+        "type": "DATE",
+        "default": null
+      },
+      "creator_id": {
+        "type": "CHAR(32)",
+        "default": null
+      },
+      "assignee_id": {
+        "type": "CHAR(32)",
+        "default": null
+      },
+      "status": {
+        "type": "VARCHAR(20)",
+        "default": "TODO"
+      },
+      "id": {
+        "type": "CHAR(32)",
+        "default": "__uuid__"
+      },
+      "created_at": {
+        "type": "DATETIME",
+        "default": "__now__"
+      }
+    }
+  },
+  "LeaveRequest": {
+    "collection": "leave_requests",
+    "fields": {
+      "user_id": {
+        "type": "CHAR(32)",
+        "default": null
+      },
+      "start_date": {
+        "type": "DATE",
+        "default": null
+      },
+      "end_date": {
+        "type": "DATE",
+        "default": null
+      },
+      "reason": {
+        "type": "VARCHAR(1000)",
+        "default": ""
+      },
+      "status": {
+        "type": "VARCHAR(20)",
+        "default": "PENDING"
+      },
+      "reviewer_id": {
+        "type": "CHAR(32)",
+        "default": null
+      },
+      "reviewed_at": {
+        "type": "DATETIME",
+        "default": null
+      },
+      "rejection_reason": {
+        "type": "VARCHAR(1000)",
+        "default": null
+      },
+      "id": {
+        "type": "CHAR(32)",
+        "default": "__uuid__"
+      },
+      "created_at": {
+        "type": "DATETIME",
+        "default": "__now__"
+      }
+    }
+  },
+  "Ticket": {
+    "collection": "tickets",
+    "fields": {
+      "title": {
+        "type": "VARCHAR(200)",
+        "default": null
+      },
+      "description": {
+        "type": "VARCHAR(2000)",
+        "default": ""
+      },
+      "creator_id": {
+        "type": "CHAR(32)",
+        "default": null
+      },
+      "assignee_id": {
+        "type": "CHAR(32)",
+        "default": null
+      },
+      "priority": {
+        "type": "VARCHAR(20)",
+        "default": "MEDIUM"
+      },
+      "status": {
+        "type": "VARCHAR(20)",
+        "default": "OPEN"
+      },
+      "id": {
+        "type": "CHAR(32)",
+        "default": "__uuid__"
+      },
+      "created_at": {
+        "type": "DATETIME",
+        "default": "__now__"
+      }
+    }
+  },
+  "AuditEvent": {
+    "collection": "audit_events",
+    "fields": {
+      "actor_id": {
+        "type": "CHAR(32)",
+        "default": null
+      },
+      "source": {
+        "type": "VARCHAR(10)",
+        "default": null
+      },
+      "action": {
+        "type": "VARCHAR(100)",
+        "default": null
+      },
+      "resource_type": {
+        "type": "VARCHAR(50)",
+        "default": null
+      },
+      "resource_id": {
+        "type": "VARCHAR(100)",
+        "default": null
+      },
+      "outcome": {
+        "type": "VARCHAR(20)",
+        "default": null
+      },
+      "request_id": {
+        "type": "VARCHAR(100)",
+        "default": null
+      },
+      "details": {
+        "type": "JSON",
+        "default": "__dict__"
+      },
+      "id": {
+        "type": "CHAR(32)",
+        "default": "__uuid__"
+      },
+      "created_at": {
+        "type": "DATETIME",
+        "default": "__now__"
+      }
+    }
+  },
+  "IdempotencyRecord": {
+    "collection": "idempotency_records",
+    "fields": {
+      "actor_id": {
+        "type": "CHAR(32)",
+        "default": null
+      },
+      "operation": {
+        "type": "VARCHAR(100)",
+        "default": null
+      },
+      "key": {
+        "type": "CHAR(32)",
+        "default": null
+      },
+      "fingerprint": {
+        "type": "VARCHAR(64)",
+        "default": null
+      },
+      "result": {
+        "type": "JSON",
+        "default": null
+      },
+      "id": {
+        "type": "CHAR(32)",
+        "default": "__uuid__"
+      },
+      "created_at": {
+        "type": "DATETIME",
+        "default": "__now__"
+      }
+    }
+  }
+}

@@ -1,5 +1,8 @@
 """Protected demo chat with independent authenticated persona conversations."""
 
+from backend.app.database.connection import atomic
+
+
 import logging
 import os
 import secrets
@@ -12,7 +15,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select, text
+from backend.app.database.query import select
 
 from backend.app.auth.tokens import digest, resolve_token
 from backend.app.auth.context import ServiceError
@@ -90,8 +93,8 @@ async def secure_headers(request, call_next):
 def health():
     try:
         with SessionLocal() as db:
-            db.execute(text("select id from chat_conversations limit 1"))
-        return {"status": "ready", "model": MODEL}
+            db.get(User, next(iter(ALLOWED)))
+        return {"status": "ready", "model": MODEL, "storage": "firestore"}
     except Exception:
         raise HTTPException(503, "Database unavailable") from None
 
@@ -101,7 +104,7 @@ def profiles():
     if not settings.demo_mode:
         raise HTTPException(503, "Demo profile selection is disabled")
     with SessionLocal() as db:
-        users = db.scalars(select(User).where(User.id.in_(ALLOWED), User.active.is_(True))).all()
+        users = db.scalars(select(User).where(User.id.in_(ALLOWED), User.active.is_(True)))
         priority = {"ADMIN": 0, "MANAGER": 1, "EMPLOYEE": 2}
         return {
             "profiles": sorted(
@@ -113,6 +116,7 @@ def profiles():
 
 
 @app.post("/chat/login")
+@atomic
 def login(payload: Login, request: Request, response: Response):
     check_origin(request)
     if not settings.demo_mode or payload.profile_id not in ALLOWED:
@@ -165,6 +169,7 @@ def get_session(profile_id: UUID, request: Request):
         }
 
 
+@atomic
 def start_turn(session_id, profile_id, payload):
     with SessionLocal.begin() as db:
         conversation = db.scalar(
@@ -191,6 +196,7 @@ def start_turn(session_id, profile_id, payload):
         return {"profile": profile_view(db.get(User, profile_id)), "events": conversation.events}
 
 
+@atomic
 def finish_turn(session_id, payload, result):
     with SessionLocal.begin() as db:
         conversation = db.scalar(
@@ -231,6 +237,7 @@ async def send_message(profile_id: UUID, payload: Message, request: Request):
 
 
 @app.post("/chat/logout/{profile_id}")
+@atomic
 def logout(profile_id: UUID, request: Request, response: Response):
     session = authenticated(request, profile_id, True)
     with SessionLocal.begin() as db:

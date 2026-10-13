@@ -1,7 +1,8 @@
+from uuid import UUID
+from backend.app.models.entities import User
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
-from sqlalchemy import text
 from backend.app.api.routes import router
 from backend.app.auth.context import ServiceError
 from backend.app.database.connection import SessionLocal
@@ -20,8 +21,8 @@ def service_error(request: Request, error: ServiceError):
 @app.get("/health")
 def health():
     with SessionLocal() as db:
-        db.execute(text("SELECT 1"))
-    return {"status": "ok"}
+        db.get(User, UUID("00000000-0000-4000-8000-000000000001"))
+    return {"status": "ok", "storage": "firestore"}
 
 
 @app.exception_handler(RequestValidationError)

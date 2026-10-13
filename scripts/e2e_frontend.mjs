@@ -20,6 +20,6 @@ try {
 } catch (error) {
   if (error.code !== "ENOENT") throw error;
 }
-process.env.PORT = "3010";
+process.env.PORT = "3020";
 process.env.HOSTNAME = "127.0.0.1";
 await import(pathToFileURL(join(standalone, "server.js")).href);

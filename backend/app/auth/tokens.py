@@ -1,7 +1,8 @@
+from backend.app.database.connection import atomic
 import hashlib
 import secrets
 from datetime import timedelta
-from sqlalchemy import select
+from backend.app.database.query import select
 from backend.app.database.connection import SessionLocal
 from backend.app.models.entities import SessionToken, User, utcnow
 from backend.app.auth.context import ServiceError
@@ -11,6 +12,7 @@ def digest(token: str):
     return hashlib.sha256(token.encode()).hexdigest()
 
 
+@atomic
 def issue_token(user_id):
     token = secrets.token_urlsafe(32)
     csrf = secrets.token_urlsafe(32)
@@ -47,6 +49,7 @@ def resolve_token(token: str, kind="WEB"):
         return session
 
 
+@atomic
 def revoke_token(token: str):
     with SessionLocal.begin() as db:
         session = db.scalar(select(SessionToken).where(SessionToken.token_hash == digest(token)))
@@ -54,6 +57,7 @@ def revoke_token(token: str):
             db.delete(session)
 
 
+@atomic
 def issue_mcp_token(user_id, scopes=None, hours=8):
     from backend.app.config import settings
     from backend.app.database.seed import USERS
@@ -86,6 +90,7 @@ def issue_mcp_token(user_id, scopes=None, hours=8):
         return token, credential.id
 
 
+@atomic
 def revoke_mcp_credential(credential_id):
     from backend.app.config import settings
 
@@ -98,6 +103,7 @@ def revoke_mcp_credential(credential_id):
         db.delete(record)
 
 
+@atomic
 def consume_mcp_request(token, maximum):
     # Persistent counters avoid per-worker limit bypass. Call only after token validation.
     from datetime import timezone

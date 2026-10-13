@@ -8,7 +8,7 @@ flowchart LR
     Codex[Codex / MCP client] --> MCP[FastMCP HTTP]
     REST --> Services[Shared permissions and transactions]
     MCP --> Services
-    Services --> DB[(PostgreSQL)]
+    Services --> DB[(Firestore)]
     Services --> Audit[Atomic Activity events]
 ```
 
@@ -19,7 +19,7 @@ docker compose up --build -d
 curl http://localhost:8001/ready
 ```
 
-The web portal stays at http://localhost:3000. MCP uses http://localhost:8001/mcp. `init` applies Alembic migrations and seeds names in place; existing records are preserved. The host publishes MCP only on loopback. Health/readiness endpoints return operational status without credentials or record data.
+The web portal stays at http://localhost:3000. MCP uses http://localhost:8001/mcp. `init` waits for the Firestore emulator and seeds names in place; existing records are preserved. The host publishes MCP only on loopback. Health/readiness endpoints return operational status without credentials or record data.
 
 ## Issue a credential
 
@@ -149,11 +149,11 @@ npx @modelcontextprotocol/inspector
 
 Choose Streamable HTTP, enter http://localhost:8001/mcp, and supply the bearer credential using Inspector’s authentication settings. Test discovery, output schemas, reads, writes, failures and annotations. Never disable server authentication to make Inspector work. The browser origin http://localhost:6274 is allowlisted; configure exact additional origins if your Inspector uses a different origin.
 
-Run `make check` for fast backend/MCP/type checks. Run `make verify` with a disposable PostgreSQL `TEST_DATABASE_URL` for concurrency checks, migrations and production browser tests. The browser harness starts isolated REST/MCP processes on 8010/8011 with a temporary database; test reset/demo routes exist only in that harness. CI runs the same full gate. Tests compare every tool with its REST counterpart and verify correct audit sources.
+Run `make check` for fast backend/MCP/type checks. Run `make verify` with `FIRESTORE_EMULATOR_HOST` for concurrency checks and production browser tests. The browser harness starts isolated REST/MCP processes on 8020 and an allocated MCP port with a disposable Firestore namespace; test reset/demo routes exist only in that harness. CI runs the same full gate. Tests compare every tool with its REST counterpart and verify correct audit sources.
 
 ## Deployment boundary
 
-`MCP_AUTH_MODE=demo` and `DEMO_MODE=true` are required; missing/unsupported auth configuration fails startup. Configuration includes `MCP_PUBLIC_URL`, JSON `MCP_ALLOWED_HOSTS`, JSON `MCP_ALLOWED_ORIGINS`, and positive `MCP_RATE_LIMIT` (default 120 authenticated HTTP requests/minute per credential). Rate counters are persisted in PostgreSQL so worker restarts do not bypass limits.
+`MCP_AUTH_MODE=demo` and `DEMO_MODE=true` are required; missing/unsupported auth configuration fails startup. Configuration includes `MCP_PUBLIC_URL`, JSON `MCP_ALLOWED_HOSTS`, JSON `MCP_ALLOWED_ORIGINS`, and positive `MCP_RATE_LIMIT` (default 120 authenticated HTTP requests/minute per credential). Rate counters are persisted in Firestore so worker restarts do not bypass limits.
 
 Before private deployment: replace demo credentials with OAuth resource-server authentication and protected-resource discovery; map verified issuer/subject to users; replace/restrict the web demo login; configure HTTPS, canonical URLs, trusted proxy handling, secrets and request limits; add optimistic record versions for competing edits. Do not expose this local demo publicly as-is. No OAuth provider, hosting platform, stdio bridge, public plugin, subscriptions or custom MCP UI are included in V1.
 

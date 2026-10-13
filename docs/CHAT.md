@@ -42,11 +42,11 @@ Switching profiles restores that profile's independent conversation in the same 
 ## Authentication and persistence
 
 - The deployment service account is used only for provisioning. Cloud Run uses a dedicated `enterprise-chat-runtime` workload identity; no JSON key is deployed.
-- The runtime has Vertex AI user, Cloud SQL client, scoped database-secret access, and invocation access to the existing MCP service.
+- The runtime has Vertex AI user, database-scoped Firestore access, and invocation access to the existing MCP service.
 - Selecting a profile creates an eight-hour HttpOnly, SameSite Strict chat cookie. Origins and CSRF tokens protect authenticated writes. The browser never receives an MCP bearer token or Google identity token.
 - Each turn reloads the account and creates an expiring MCP credential scoped to that profile. Review scope is issued only for managers/admins. The credential is revoked after the turn; an interrupted process leaves at most its one-hour lifetime.
 - Google identity tokens are obtained server-side per turn for Cloud Run invocation. The MCP server still resolves the active account and enforces all existing permissions.
-- Conversations, complete ADK events, and turn results persist in PostgreSQL. Stored events retain model/tool context across refreshes and Cloud Run instance changes. Thought content/signatures are not shown in the browser.
+- Conversations, complete ADK events, and turn results persist in Firestore. Stored events retain model/tool context across refreshes and Cloud Run instance changes. Thought content/signatures are not shown in the browser.
 - A conversation row lock admits one running turn. The client supplies a UUID turn key; identical completed retries return the saved response without repeating agent actions, and changed-input reuse conflicts. Creation tool keys are bound to the turn and business arguments.
 - Interrupted turns are not silently retried. Start a new chat and check records before repeating a write. Each conversation is limited to thirty turns, each turn to sixteen model calls and a six-minute model/tool execution budget.
 - Record text is untrusted input. Prompts, raw credentials, tool arguments, and raw error traces are not included in the application's operational logging. Assistant text is rendered as text, never executed HTML.
@@ -61,7 +61,7 @@ python3 -m venv .venv-chat
 .venv-chat/bin/python -m pytest -q chat_app/tests
 ```
 
-`make check`, `make verify`, and GitHub CI include the chat suite. It covers persona isolation, allowlisting, role/source spoofing, credential kinds, cookie security, CSRF/origins, persistent history, failed-turn replay, logout, and concurrent PostgreSQL turns. The existing backend/MCP and browser suites remain intact.
+`make check`, `make verify`, and GitHub CI include the chat suite. It covers persona isolation, allowlisting, role/source spoofing, credential kinds, cookie security, CSRF/origins, persistent history, failed-turn replay, logout, and concurrent Firestore turns. The existing backend/MCP and browser suites remain intact.
 
 Build and deploy with a fresh tag:
 

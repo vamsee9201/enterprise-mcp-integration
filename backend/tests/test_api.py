@@ -1,6 +1,6 @@
 import pytest
 from datetime import timedelta
-from sqlalchemy import select
+from backend.app.database.query import select
 from backend.app.database.seed import uid
 from backend.app.models.entities import SessionToken, utcnow
 from backend.app.config import settings

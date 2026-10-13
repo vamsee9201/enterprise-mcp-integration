@@ -3,13 +3,13 @@ from datetime import date
 from threading import Barrier
 from uuid import UUID, uuid4
 import pytest
-from sqlalchemy import select, func
+from backend.app.database.query import select, func
 from backend.app.auth.context import ActorContext, ServiceError
 from backend.app.database.seed import uid
 from backend.app.models.entities import TimeEntry, AuditEvent
 from backend.app.services.portal import run
 
-pytestmark = pytest.mark.postgres
+pytestmark = pytest.mark.firestore
 
 
 def invoke(n, action, **args):
@@ -30,7 +30,7 @@ def race(operations):
         return list(pool.map(execute, operations))
 
 
-def test_concurrent_approval_has_one_winner(postgres_database):
+def test_concurrent_approval_has_one_winner(firestore_database):
     invoke(
         2,
         "add_time_entry",
@@ -50,7 +50,7 @@ def test_concurrent_approval_has_one_winner(postgres_database):
     )
     assert sum(isinstance(r, dict) for r in results) == 1
     assert results.count(409) == 1
-    with postgres_database() as db:
+    with firestore_database() as db:
         assert (
             db.scalar(
                 select(func.count())
@@ -64,7 +64,7 @@ def test_concurrent_approval_has_one_winner(postgres_database):
         )
 
 
-def test_concurrent_daily_hours_and_sheet_creation(postgres_database):
+def test_concurrent_daily_hours_and_sheet_creation(firestore_database):
     results = race(
         [
             lambda: invoke(
@@ -79,11 +79,11 @@ def test_concurrent_daily_hours_and_sheet_creation(postgres_database):
         ]
     )
     assert sum(isinstance(r, dict) for r in results) == 1 and results.count(422) == 1
-    with postgres_database() as db:
+    with firestore_database() as db:
         assert db.scalar(select(func.sum(TimeEntry.hours))) == 14
 
 
-def test_concurrent_overlapping_leave(postgres_database):
+def test_concurrent_overlapping_leave(firestore_database):
     results = race(
         [
             lambda: invoke(
@@ -95,7 +95,7 @@ def test_concurrent_overlapping_leave(postgres_database):
     assert sum(isinstance(r, dict) for r in results) == 1 and results.count(409) == 1
 
 
-def test_concurrent_leave_decision_has_one_winner(postgres_database):
+def test_concurrent_leave_decision_has_one_winner(firestore_database):
     leave = invoke(2, "request_leave", start_date=date(2027, 5, 1), end_date=date(2027, 5, 2))
     lid = UUID(leave["id"])
     results = race(
@@ -106,7 +106,7 @@ def test_concurrent_leave_decision_has_one_winner(postgres_database):
     )
     assert sum(isinstance(result, dict) for result in results) == 1
     assert results.count(409) == 1
-    with postgres_database() as db:
+    with firestore_database() as db:
         assert (
             db.scalar(
                 select(func.count())

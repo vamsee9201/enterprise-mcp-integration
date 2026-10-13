@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal
 from uuid import UUID
 import pytest
-from sqlalchemy import select, func
+from backend.app.database.query import select, func
 from backend.app.auth.context import ServiceError
 from backend.app.database.seed import uid
 from backend.app.models.entities import (
@@ -271,7 +271,7 @@ def test_audit_visibility_and_filters(call):
 
 
 def test_audit_failure_rolls_back_business_change(call, database, monkeypatch):
-    from sqlalchemy.orm import Session
+    from backend.app.database.connection import DocumentSession as Session
 
     original = Session.add
 

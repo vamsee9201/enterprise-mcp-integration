@@ -8,15 +8,15 @@ lint:
 	$(RUFF) check backend scripts mcp_server deploy chat_app
 	$(RUFF) format --check backend scripts mcp_server deploy chat_app
 
-# Fast feedback; intentionally excludes PostgreSQL-only concurrency checks.
+# Fast feedback; intentionally excludes Firestore concurrency checks.
 check: lint
-	$(PYTHON) -m pytest -q -m 'not postgres'
-	$(CHAT_PYTHON) -m pytest -q chat_app/tests -m 'not postgres'
+	$(PYTHON) -m pytest -q -m 'not firestore'
+	$(CHAT_PYTHON) -m pytest -q chat_app/tests -m 'not firestore'
 	npm run typecheck --prefix frontend
 
-# Full release/CI gate. Requires a disposable PostgreSQL database.
+# Full release/CI gate. Requires the local Firestore emulator.
 verify: lint
-	@test -n "$$TEST_DATABASE_URL" || { echo 'Set TEST_DATABASE_URL to a disposable PostgreSQL database (see README).'; exit 1; }
+	@test -n "$$FIRESTORE_EMULATOR_HOST" || { echo 'Set FIRESTORE_EMULATOR_HOST (see README).'; exit 1; }
 	$(PYTHON) -m pytest -q
 	$(CHAT_PYTHON) -m pytest -q chat_app/tests
 	npm run typecheck --prefix frontend

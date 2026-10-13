@@ -1,188 +1,321 @@
-# Pied Piper Operations
+# Natural-language access to SaaS with MCP and Codex
 
-A Silicon Valley–themed Pied Piper enterprise portal for everyday work: timesheets, tasks, leave, support tickets, an employee directory, manager review, and activity logs. All workflows are also available through an authenticated local FastMCP server.
+People use SaaS platforms to get work done: log time, request leave, assign tasks, resolve support issues, and review approvals. Each action usually means finding the right application, navigating its menus, filling out a form, and checking the result. When a workflow spans several screens or platforms, navigation becomes part of the job.
 
-See [MCP setup and Codex demo](docs/MCP.md) for credentials, tools, retry behavior, and connection instructions.
+A natural-language interface lets people describe the outcome they want: **“Log seven hours on Compression Engine for Monday and submit my timesheet.”** An agent can find the project, identify the correct week, and perform the relevant operations. This can reduce repetitive navigation and make capabilities easier to discover, especially for people who use a platform only occasionally.
 
-The portal and MCP server are also deployed as an IAM-protected cloud demo in `ai-lab-502500`. See [cloud deployment and access](docs/DEPLOYMENT.md) for URLs, the browser proxy, cloud credentials, and verification results.
+This repository demonstrates that idea with a Silicon Valley–themed SaaS application, an authenticated Model Context Protocol (MCP) server, and Codex as the conversational interface. The web application makes the underlying records and workflow results visible; Codex lets users work with those same records through natural language.
 
-Use the [ADK chat interface](docs/CHAT.md) to select a persona and work through natural language with Gemini 3.8 Flash and the deployed MCP tools.
+## What is an MCP server?
 
-This release includes the enterprise web application and a local FastMCP server. REST handlers and MCP tools share permissions, validation, workflows, transactions, and auditing.
+The **Model Context Protocol (MCP)** defines a standard way for AI applications to discover and call tools, and to access resources and prompts supplied by external systems. An MCP server exposes a system's capabilities through that protocol. The AI application connects as a client, discovers the available capabilities, and uses them to respond to a user's request.
 
-## Run locally
+For a SaaS platform, tools can represent business operations such as finding an employee, logging time, submitting a timesheet, or approving leave. Each tool has a name, description, and structured input/output contract. The agent translates the user's request into tool calls; the server authenticates those calls and the application enforces its permissions and business rules.
 
-Install Docker Desktop, start it, then run from the repository root:
+In this project, the MCP server exposes **33 typed tools** over **Streamable HTTP** using FastMCP. Codex connects to it with a persona-specific bearer credential. The server supplies application capabilities; Codex supplies the language model and conversational experience. Starting the portal and MCP server does not require a model API key.
 
-```sh
-docker compose up --build -d
-```
+See the [MCP introduction](https://modelcontextprotocol.io/docs/getting-started/intro) and [official Codex MCP documentation](https://learn.chatgpt.com/docs/extend/mcp?surface=cli) for protocol and client background.
 
-Open **http://localhost:3000**. API documentation is at **http://localhost:8000/docs**. The initialization container applies Alembic migrations and seeds demo records before starting the app.
+## First, build a SaaS platform
 
-| Account           | Role     | Team                                   |
-| ----------------- | -------- | -------------------------------------- |
-| Dinesh Chugtai    | Employee | Engineering; reports to Gilfoyle       |
-| Jared Dunn        | Employee | Operations; reports to Gilfoyle        |
-| Bertram Gilfoyle  | Manager  | Engineering                            |
-| Erlich Bachman    | Employee | Business Operations; reports to Monica |
-| Monica Hall       | Manager  | Business Operations                    |
-| Richard Hendricks | Admin    | Leadership; all records                |
+To demonstrate an agent operating a SaaS platform, we first needed a platform with real records, users, and workflows. **Pied Piper Operations** is a fictional internal enterprise portal inspired by *Silicon Valley*. Its employees include Dinesh, Gilfoyle, Jared, Monica, Erlich, and Richard.
 
-The reporting relationships are chosen for the permission demo rather than reproducing the show. The seven modules and workflow rules are unchanged.
+The application provides seven modules: timesheets, tasks, leave, support tickets, an employee directory, manager review, and activity logs. It includes employee, manager, and administrator roles, persistent data, validation, approvals, and auditing. The reporting relationships are chosen to demonstrate permissions rather than reproduce the show.
 
-Select a demo account at login. Use the switch-account button in the header to change identities.
+The next layer is the MCP integration. The web API and MCP tools call the **same business services**, so completing a task through Codex changes the same record shown in the portal. The agent gets the authenticated user's permissions, and writes produce activity events identifying MCP as their source.
 
-Tabs in the same browser share a session. Switching accounts or signing out synchronizes the other tabs and closes their unsaved forms. Use separate browser profiles if you want employee and manager accounts signed in at the same time.
-
-Stop with `docker compose down`. To **delete local demo data and reset everything**, run:
-
-```sh
-docker compose down --volumes
-docker compose up --build -d
-```
-
-The reset command deletes this project's PostgreSQL volume. Normal startup and the seed command preserve existing workflows. Seeding refreshes demo names, emails, departments and project labels in place, so existing timesheets, requests, assignments, sessions and audit history stay attached to the same IDs. Edited sample tasks and tickets are preserved.
+Finally, Codex connects to the MCP server. A user can discover their projects, submit work, or handle a support issue in conversation, then inspect the result in the web application. This is an example of adding an agent interface to an existing product without duplicating its workflow logic.
 
 ## Architecture
 
-```mermaid
-flowchart LR
-  UI[Next.js web UI] --> REST[FastAPI REST API]
-  REST --> Services[Shared business services]
-  Agent[Codex / MCP client] --> MCP[FastMCP HTTP]
-  MCP --> Services
-  Services --> DB[(PostgreSQL)]
-  Services --> Audit[Transactional audit records]
-  Audit --> DB
-```
+| Component | Technology / location | Responsibility |
+| --- | --- | --- |
+| Web portal | Next.js 15, React 19, TypeScript, Tailwind CSS; `frontend/` | Seven application views, forms, account switching, and visible workflow results. Proxies `/api` requests to the backend. |
+| REST API | FastAPI and Pydantic; `backend/app/api/` | Browser authentication, typed request validation, and application endpoints under `/api/v1`. |
+| MCP server | FastMCP 2.14.7 and MCP SDK 1.25.0; `mcp_server/` | Exposes 33 typed tools at `/mcp`, authenticates bearer credentials, and applies scope and request limits. |
+| Shared business services | `backend/app/services/portal.py` | Enforces ownership, team access, workflow transitions, validation, and auditing for both REST and MCP. |
+| Persistence | Google Cloud Firestore; `backend/app/database/` and `backend/app/models/` | Stores application records, sessions, credentials, retry records, and audit events. Local development uses the Firestore emulator. |
+| Authentication | `backend/app/auth/` | Separate web sessions and MCP credentials, stored as token hashes; resolves the user's current role and access. |
+| Agent client | Codex | Interprets natural language, discovers tools, resolves record names, and invokes permitted operations. |
+| Optional chat application | Google ADK and Vertex AI; `chat_app/` | An additional conversational client that performs business operations through MCP. Requires separate cloud/model setup. |
+| Verification | pytest, Ruff, TypeScript, Playwright | Service, API, MCP, concurrency, and browser checks; some harnesses still require migration updates described below. |
 
-- Frontend: Next.js App Router, TypeScript, Tailwind CSS, responsive seven-view portal.
-- Backend: FastAPI, Pydantic, SQLAlchemy, Alembic.
-- Database: PostgreSQL 16. SQLite is supported for isolated tests and quick local previews.
-- Authentication: allowlisted demo accounts with opaque, hashed server sessions; eight-hour expiry; HttpOnly, SameSite cookies; CSRF token and Origin checks for writes.
-- Business rules live in `backend/app/services`. Handlers only validate transport inputs and invoke services with an authenticated actor context. The backend reloads the actor's current role from the database.
-- Successful changes and audits share one transaction. Permission denials and business validation failures roll back changes and produce separate DENIED/FAILED events. Unauthenticated requests and transport schema failures do not create business audit events.
-- PostgreSQL actor locks serialize entry-total and leave-overlap checks. Resource locks ensure only one reviewer can decide a pending request.
+**Web request path:** browser → REST API → shared services → Firestore.
 
-## Workflows and permissions
+**Agent request path:** user → Codex → MCP server → shared services → Firestore.
 
-**Timesheets:** a weekly project-by-day grid shows every assigned project, with seven MM/DD date columns and zero for empty days. Select any date to view its Monday–Sunday week. Descriptions are optional when logging or editing time. Click an empty cell to log time with its project/date prefilled, or a populated cell to inspect and manage individual entries; multiple entries are summed per cell. Zeroes are display defaults and create no database records. Monday-start weeks, active assigned projects, decimal hours greater than zero, at most 24 hours per day. Draft entries can be edited or deleted. Nonempty sheets can be submitted. Managers approve or reject direct-report sheets; rejection requires a reason. Editing a rejected sheet returns it to draft. Submitted and approved sheets are locked.
+Successful business changes and their audit records commit together. Creation tools support retry keys to prevent duplicate records after an uncertain response. Each tool call commits separately: if logging time succeeds but submission fails, the entry remains saved.
 
-**Tasks:** managers create, edit and assign within their team; employees see and change the status of tasks assigned to them. States are TODO, IN_PROGRESS and DONE; reopening is allowed.
+## Run on your own machine
 
-**Leave:** inclusive calendar dates, no overlap with pending or approved requests. Managers review direct reports. No balances, holidays or partial days.
+### Current repository state
 
-**Tickets:** employees create tickets and can view or update the status of tickets they created or are currently assigned to. Reassignment removes the previous assignee’s access unless they also created the ticket. Managers and admins manage all tickets, including priority and assignment to active users. Creators, current assignees, managers, and admins can select any status (OPEN, IN_PROGRESS, RESOLVED, or CLOSED), including skipping steps or reopening a ticket. Status changes are audited.
+The backend, MCP server, and ADK chat use Firestore. Local and CI tests use isolated emulator namespaces; deployment uses a dedicated Firestore database. Docker Compose starts the emulator and seeds the app. See [Firestore deployment and recovery](docs/FIRESTORE.md).
 
-**Directory:** authenticated users can search seeded employee records by name, email, department or manager name, and filter by department/manager ID.
+### Prerequisites
 
-**Manager review:** one pending queue for timesheets and leave. Own requests are excluded. Admins can review all other users' requests. Self-approval and self-rejection are forbidden for every role.
+- Git, Python **3.13**, and Node.js **22** with npm.
+- Google Cloud CLI with the Firestore emulator component and Java **25 or later**. See [Google's emulator setup](https://docs.cloud.google.com/firestore/native/docs/emulator).
+- Codex installed and signed in if you want to use the natural-language interface. The portal can run independently.
+- Available local ports: **8787** (emulator), **8000** (REST), **8001** (MCP), and **3000** (web).
 
-**Activity:** employees see their own actions; managers see their own and direct-report actions; admins see all. Filter by actor, source, action, resource, outcome and dates. Actions identify their UI or MCP source; agent writes appear beside web actions.
+Commands below use a POSIX shell such as bash or zsh. On Windows, use WSL or adapt the virtual-environment paths and environment-variable syntax.
 
-Dates use America/Chicago; timestamps are stored in UTC. Workflow views refresh every ten seconds while visible, after mutations, and on window focus.
-
-## Development without containerized app services
-
-Python 3.13 and Node.js 20.9+ are supported; Docker builds use Node.js 22.
+### 1. Clone and install
 
 ```sh
-python3 -m venv .venv
+git clone https://github.com/vamsee9201/enterprise-mcp-integration.git
+cd enterprise-mcp-integration
+python3.13 -m venv .venv
 .venv/bin/pip install -r backend/requirements-dev.txt
-cp .env.example .env
-docker compose up -d db
-.venv/bin/alembic -c backend/alembic.ini upgrade head
-.venv/bin/python -m backend.app.demo seed
-.venv/bin/uvicorn backend.app.main:app --reload --port 8000
+npm ci --prefix frontend
 ```
 
-In a second terminal:
+### 2. Start the Firestore emulator
+
+In a dedicated terminal, start the emulator and leave it running:
 
 ```sh
-npm ci --prefix frontend
+gcloud emulators firestore start --host-port=127.0.0.1:8787
+```
+
+If the component is missing, install it using your Google Cloud CLI installation's supported component/package mechanism. The local emulator does not require access to the project's deployed cloud resources.
+
+### 3. Configure, seed, and start the API
+
+From the repository root, create a local `.env` with these settings. If you already have one, update the relevant values instead of overwriting unrelated settings:
+
+```dotenv
+FIRESTORE_PROJECT=demo-enterprise-portal
+FIRESTORE_DATABASE=(default)
+FIRESTORE_NAMESPACE=portal
+DEMO_MODE=true
+WEB_ORIGIN=http://localhost:3000
+APP_TIMEZONE=America/Chicago
+SECURE_COOKIES=false
+MCP_AUTH_MODE=demo
+MCP_PUBLIC_URL=http://localhost:8001/mcp
+```
+
+Export the emulator address in **every terminal running a Python application, token command, or test**. It is read by the Firestore SDK from the process environment:
+
+```sh
+export FIRESTORE_EMULATOR_HOST=127.0.0.1:8787
+.venv/bin/python -m backend.app.demo seed
+.venv/bin/uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+Seeding creates the demo users, projects, and sample records. Repeated seeding preserves existing workflow records and refreshes reference data in place.
+
+### 4. Start the MCP server
+
+In another terminal at the repository root:
+
+```sh
+export FIRESTORE_EMULATOR_HOST=127.0.0.1:8787
+.venv/bin/uvicorn mcp_server.asgi:app --host 127.0.0.1 --port 8001
+```
+
+### 5. Start the frontend
+
+In another terminal at the repository root:
+
+```sh
 npm run dev --prefix frontend
 ```
 
-If PostgreSQL is unavailable, set `DATABASE_URL=sqlite:////tmp/orbit-local.db` in `.env` and apply the same migrations and seed commands. SQLite does not provide the PostgreSQL concurrency guarantees; use PostgreSQL for the full demo.
+| Service | Local address |
+| --- | --- |
+| Web portal | [http://localhost:3000](http://localhost:3000) |
+| REST API documentation | [http://localhost:8000/docs](http://localhost:8000/docs) |
+| REST health check | [http://localhost:8000/health](http://localhost:8000/health) |
+| MCP readiness | [http://localhost:8001/ready](http://localhost:8001/ready) |
+| MCP endpoint | `http://localhost:8001/mcp` — connect with an authenticated MCP client |
 
-Demo mode defaults to disabled in application settings and is explicitly enabled in Compose and `.env.example`. This app has no production identity provider yet. Do not expose demo login on a public deployment. The UI uses same-origin API proxying; `WEB_ORIGIN` must match the browser origin. Set `SECURE_COOKIES=true` when using HTTPS.
+Select a demo account in the portal. Stop each process with **Ctrl+C**. The default emulator is in memory, so stopping it discards local data; restart it and seed again for a fresh demo. For persistence between runs, consult the emulator's import/export options.
 
-## REST API
+### Demo accounts
 
-All application endpoints use `/api/v1`; lists return `{items, total, limit, offset}` and support pagination. Full typed schemas and endpoint details are generated in `/docs`.
+| Account | Role | Team / reporting relationship |
+| --- | --- | --- |
+| Dinesh Chugtai | Employee | Engineering; reports to Gilfoyle |
+| Jared Dunn | Employee | Operations; reports to Gilfoyle |
+| Bertram Gilfoyle | Manager | Engineering |
+| Erlich Bachman | Employee | Business Operations; reports to Monica |
+| Monica Hall | Manager | Business Operations |
+| Richard Hendricks | Admin | Leadership; access across the organization |
 
-- `/auth/demo-accounts`, `/auth/demo-login`, `/auth/me`, `/auth/logout`
-- `/employees`, `/employees/{id}`, `/projects`, `/projects/{id}`
-- `/timesheets/me?week=YYYY-MM-DD`, `/timesheets/{id}`, `/timesheets/submit?week=...`
-- `/time-entries`: POST; `/time-entries/{id}`: PUT/DELETE
-- `/timesheets/{id}/approve` and `/reject`: POST
-- `/tasks`: GET/POST; `/tasks/{id}`: GET/PUT; `/assignee` and `/status`: PATCH
-- `/leave-requests`: GET/POST; `/leave-requests/{id}`: GET; `/approve` and `/reject`: POST
-- `/tickets`: GET/POST; `/tickets/{id}`: GET; `/assignee`, `/priority`, `/status`: PATCH
-- `/approvals`, `/audit-events`
+Browser tabs share a session. Switching accounts or signing out synchronizes other tabs and closes their unsaved forms. Use separate browser profiles for simultaneous employee and manager sessions.
 
-Identity and source are never accepted as mutation body fields. Authenticated writes require `X-CSRF-Token` from login or `/auth/me`, together with the configured `Origin` header. Sessions are cookies, not bearer credentials.
+## Connect the MCP server to Codex
 
-## Verification
+### Issue a persona credential
 
-Install the backend development dependencies and frontend dependencies before running tests:
+In a terminal at the repository root, with the emulator running:
 
 ```sh
-python3 -m venv .venv
-.venv/bin/pip install -r backend/requirements-dev.txt
-npm ci --prefix frontend
-python3 -m venv .venv-chat
+export FIRESTORE_EMULATOR_HOST=127.0.0.1:8787
+
+# Dinesh: employee, with default read/write scopes
+.venv/bin/python -m backend.app.demo issue-mcp-token \
+  --user-id 00000000-0000-4000-8000-000000000002
+
+# Gilfoyle: manager, including permission to call review tools
+.venv/bin/python -m backend.app.demo issue-mcp-token \
+  --user-id 00000000-0000-4000-8000-000000000001 \
+  --scope portal:read --scope portal:write --scope portal:review
+```
+
+Each command prints a raw token once and a separate credential ID. Keep the token private and retain the ID for revocation. Tokens expire after eight hours by default; `--hours` supports up to 24. A read-only credential uses `--scope portal:read`. Review scope does not override team restrictions or the ban on self-review.
+
+For the admin walkthrough, issue a token with the same three scopes for Richard: `00000000-0000-4000-8000-000000000006`.
+
+### Configure the connection
+
+Add this secret-free configuration to your personal `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.pied_piper]
+url = "http://localhost:8001/mcp"
+bearer_token_env_var = "PIED_PIPER_MCP_TOKEN"
+startup_timeout_sec = 20
+tool_timeout_sec = 30
+```
+
+Supply the token to the Codex process through its environment. For a terminal demonstration with **zsh**, use a hidden prompt and launch Codex from that shell:
+
+```sh
+read -s 'PIED_PIPER_MCP_TOKEN?Paste your MCP token: '
+export PIED_PIPER_MCP_TOKEN
+codex
+```
+
+Use `codex mcp list` to inspect configured servers and `/mcp` inside the Codex terminal interface to inspect active connections. See [official Codex MCP configuration guidance](https://learn.chatgpt.com/docs/extend/mcp?surface=cli).
+
+A shell export does not update an already-running desktop application's environment. For desktop use, supply the credential through the app's supported MCP setup or launch it with the configured environment.
+
+Start with: **“Use Pied Piper get_my_context and tell me who I am.”** Verify the identity before making changes. Switching the portal account does not switch the MCP credential. For the simplest demo, use one active persona connection at a time and reconnect in a fresh session after changing the token.
+
+To revoke a credential:
+
+```sh
+.venv/bin/python -m backend.app.demo revoke-mcp-token \
+  --credential-id YOUR_CREDENTIAL_UUID
+```
+
+## Demonstrate the natural-language workflow
+
+Keep the portal open beside Codex. Visible views refresh every ten seconds, after web mutations, and on window focus. Choose an unused timesheet week and leave dates when repeating the demonstration.
+
+| Persona | Example request | Expected result |
+| --- | --- | --- |
+| Dinesh | “Who is my manager, and which projects can I log time to?” | Codex discovers the user's manager and assigned projects through MCP. |
+| Dinesh | “Log seven hours on Compression Engine for May 3, 2027, without a description, then submit that week's timesheet.” | A time entry is saved and the week becomes SUBMITTED. |
+| Gilfoyle | “Show pending approvals and approve Dinesh's May 3, 2027 timesheet.” | The sheet becomes APPROVED and leaves the pending queue. |
+| Gilfoyle | “Create a task for Dinesh called Investigate compression performance.” | A task is created and assigned to Dinesh. |
+| Dinesh | “Mark Investigate compression performance as done.” | The assigned task becomes DONE. |
+| Dinesh | “Request leave for May 17–19, 2027.” | A PENDING leave request is created. |
+| Gilfoyle | “Reject Dinesh's May 17–19 leave because team coverage is required.” | The request becomes REJECTED with feedback. |
+| Dinesh | “Create a high-priority ticket called Demo VPN issue.” | A support ticket is created. |
+| Gilfoyle | “Assign Demo VPN issue to Dinesh.” | The ticket's assignee changes. |
+| Dinesh | “The VPN issue is fixed. Close Demo VPN issue.” | The ticket becomes CLOSED. |
+| Gilfoyle | “Request leave for June 28–29, 2027, then approve my own request.” | Creation succeeds; self-approval is denied. |
+| Richard | “Approve Gilfoyle's June 28–29 leave, then show recent MCP activity.” | The leave is approved; activity includes successful and denied actions. |
+
+These requests create real demo records. An ambiguous name should lead to clarification. A submitted or approved timesheet cannot be edited, and a permission denial should remain a denial regardless of how the request is phrased.
+
+The [three-persona demo guide](docs/MCP_DEMO.md) includes presentation prompts. The [MCP reference](docs/MCP.md) contains detailed tool contracts and retry behavior; it includes Firestore setup and current runtime contracts.
+
+## Workflows and permissions
+
+| Module | Behavior and rules |
+| --- | --- |
+| Timesheets | Monday–Sunday project/day grid; assigned active projects; positive decimal hours with at most two decimal places and a 24-hour daily total limit. Descriptions are optional. Draft entries can be edited/deleted; nonempty sheets can be submitted. Submitted/approved sheets are locked. Rejection requires feedback; editing a rejected sheet returns it to draft. |
+| Tasks | Managers create, edit, and assign within their permitted team; employees see assigned tasks and change their status. States: TODO, IN_PROGRESS, DONE; reopening is allowed. |
+| Leave | Inclusive calendar dates; pending/approved requests cannot overlap. Managers review direct reports. No leave balances, holiday calculations, or partial days. |
+| Support tickets | Employees access tickets they created or currently hold as assignee. Managers/admins see all tickets and control assignment and existing-ticket priority. Authorized users can select OPEN, IN_PROGRESS, RESOLVED, or CLOSED, including direct closure and reopening. Reassignment removes the former assignee's access unless they are also the creator. |
+| Directory | Authenticated search by name, email, department, or manager name; department/manager filters. |
+| Manager review | Combined pending timesheet/leave queue. Managers review direct reports; admins can review other users. Nobody can approve or reject their own requests. |
+| Activity | Employees see their own actions; managers see their own and direct-report actions; admins see all. Filters include actor, source, action, resource, outcome, and dates. UI and MCP writes are distinguishable. |
+
+Dates use **America/Chicago**; timestamps are stored in UTC. Empty timesheet cells display zero without creating zero-hour records, and multiple entries in a cell are summed.
+
+## MCP tool coverage
+
+| Area | Tools |
+| --- | --- |
+| Identity | `get_my_context` |
+| Directory and projects | `search_employees`, `get_employee`, `list_projects`, `get_project` |
+| Timesheets | `list_timesheets`, `get_my_timesheet`, `get_timesheet`, `add_time_entry`, `update_time_entry`, `delete_time_entry`, `submit_timesheet`, `approve_timesheet`, `reject_timesheet` |
+| Tasks | `list_tasks`, `get_task`, `create_task`, `update_task`, `assign_task`, `update_task_status` |
+| Leave | `list_leave_requests`, `get_leave_request`, `request_leave`, `approve_leave`, `reject_leave` |
+| Tickets | `list_tickets`, `get_ticket`, `create_ticket`, `assign_ticket`, `update_ticket_priority`, `update_ticket_status` |
+| Review and activity | `list_pending_approvals`, `get_recent_activity` |
+
+Tool IDs are UUIDs obtained from search/list results. Dates use ISO format. Lists default to 50 records and allow up to 100 per page. Mutation responses include `record`, `request_id`, and `replayed`; list responses include pagination fields and a request ID.
+
+The four creation tools—`add_time_entry`, `create_task`, `request_leave`, and `create_ticket`—require an `idempotency_key` UUID. Use a new key for a new action and reuse it only when retrying the same action with identical arguments after an uncertain result. A replay returns the original creation result without duplicating the write or success audit event. Reusing a key with changed arguments conflicts. Other mutations have their own workflow semantics; repeated approvals conflict.
+
+## REST API and authentication
+
+Application endpoints are under `/api/v1`. The running [API documentation](http://localhost:8000/docs) provides typed schemas and exact parameters.
+
+| Area | Endpoint families |
+| --- | --- |
+| Authentication/context | `/auth/demo-accounts`, `/auth/demo-login`, `/auth/me`, `/auth/logout`, `/context` |
+| Directory/projects | `/employees`, `/employees/{id}`, `/projects`, `/projects/{id}` |
+| Timesheets | `/timesheets`, `/timesheets/me`, `/timesheets/{id}`, `/timesheets/submit`, `/time-entries`; approval/rejection routes |
+| Tasks | `/tasks`, `/tasks/{id}`; detail, assignee, and status updates |
+| Leave/tickets | `/leave-requests`, `/tickets`; detail and workflow routes |
+| Review/activity | `/approvals`, `/audit-events` |
+
+Web authentication uses eight-hour opaque sessions in HttpOnly, SameSite cookies. Authenticated browser writes require the CSRF token returned by login or `/auth/me` and an allowed `Origin`. MCP uses separate bearer credentials with read/write/review scopes. Identity and action source come from authentication, never mutation-body fields.
+
+MCP checks allowed hosts/origins and defaults to 120 authenticated HTTP requests per minute per credential. Missing, expired, or revoked credentials return 401; rate limits return 429 with `Retry-After`. Business failures return tool errors with safe categories and correlation IDs. Record descriptions and other user-entered text are data, and must not be treated as agent instructions.
+
+## Development and verification
+
+The repository includes tests for permissions, workflow validation, authentication, REST/MCP parity, retries, auditing, concurrency, and browser interactions. With the Firestore emulator running, execute the full verification gate:
+
+```sh
+export FIRESTORE_EMULATOR_HOST=127.0.0.1:8787
+python3.13 -m venv .venv-chat
 .venv-chat/bin/pip install -r chat_app/requirements.txt pytest==9.0.2
-cd frontend && npx playwright install chromium && cd ..
+make verify
 ```
 
-For quick feedback after edits, run `make check`. It runs Python lint/format checks, SQLite backend and chat tests, and TypeScript checks. PostgreSQL concurrency tests are intentionally excluded from this fast command.
+Backend fixtures create isolated `test-` namespaces and delete them afterward. Use the local emulator for these checks. The commands above are verification instructions, not a claim that the current working tree passes every test.
 
-Before pushing a change, run the complete gate:
+`make check`, `make verify`, GitHub CI and browser fixtures now use Firestore. CI starts the emulator automatically. Browser tests use isolated ports 3020/8020 and an automatically allocated MCP port. Real Firestore tests are opt-in with `FIRESTORE_LIVE_TESTS=1` and clean only generated `test-` namespaces.
 
-```sh
-docker compose up -d db
-docker compose exec -T db createdb -U portal portal_test
-TEST_DATABASE_URL=postgresql+psycopg://portal:portal@localhost:5433/portal_test make verify
-```
+For MCP inspection, run `npx @modelcontextprotocol/inspector`, choose Streamable HTTP, and enter `http://localhost:8001/mcp` with the persona bearer token in its authentication settings. The default allowed Inspector origin is `http://localhost:6274`.
 
-Create the test database once; reuse it on later runs. `make verify` fails if `TEST_DATABASE_URL` is missing. It runs all backend and chat tests, PostgreSQL locking tests, TypeScript checks, a production frontend build, and all browser workflows. Browser servers use ports 3010/8010 and a temporary SQLite database. The production build used by the browser suite points to the isolated test API, while Docker builds continue to use the normal API configuration.
+| Directory / file | Contents |
+| --- | --- |
+| `frontend/` | Portal UI, API client, and browser tests |
+| `backend/app/` | REST routes, authentication, business services, models, and Firestore persistence |
+| `backend/tests/` | Service, API, MCP, seed, and concurrency tests |
+| `mcp_server/` | Server, tool definitions, adapter, and response contracts |
+| `chat_app/` | Optional ADK chat client, UI, and tests |
+| `scripts/mcp_demo.py` | Real HTTP MCP demonstration; creates actual workflow records |
+| `docs/` | MCP/demo guides, historical deployment/chat instructions, and verification evidence |
+| `deploy/` | Firestore Cloud Run deployment and one-time protected SQL export/import utilities |
+| `compose.yaml` | Local Firestore emulator and application startup |
 
-**Only use a disposable test database.** PostgreSQL tests recreate its tables and refuse URLs without `test` in the database name. Tests do not reset the local demo database. Do not run multiple verification suites simultaneously against the same test database or ports.
+## Optional chat and deployment
 
-| Test layer      | Covered contracts                                                                                                                                                                                                                                                     |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Shared services | Ownership/team/admin permissions, creator/assignee ticket access, reassignment, all ticket transitions, timesheet validation and locks, leave overlap/self-review, combined approval queues, filters/pagination, Chicago activity dates, atomic auditing and rollback |
-| REST/auth       | Sessions, expiry, CSRF/origin checks, identity/source spoofing, typed validation, status codes, module workflows and audit sources                                                                                                                                    |
-| Database        | Migration upgrade/downgrade, seed preservation, competing timesheet/leave decisions, concurrent hour totals and overlapping leave; calendar filters on SQLite and PostgreSQL                                                                                          |
-| Browser         | Employee/manager/admin workflows, optional descriptions, grid edit/delete/aggregation, task completion, leave review, assigned tickets and reopening, search/pagination, automatic refresh, shared-tab identity, centered desktop/mobile dialogs and navigation       |
+The [ADK chat guide](docs/CHAT.md) describes an additional MCP client using Vertex AI. It requires its own cloud credentials, model access, and service configuration. The [deployment guide](docs/DEPLOYMENT.md) describes the current private Cloud Run services, and the [Firestore test report](docs/FIRESTORE_TEST_REPORT.md) records migration, automated verification and deployed browser/agent results.
 
-GitHub Actions runs `make verify` on every push and pull request with PostgreSQL 16, Python 3.13, and Node 22. Failed browser runs upload screenshots and traces as the `browser-failures` artifact. Locally, find these under `frontend/test-results/`.
+This remains a demo with selectable personas and locally issued MCP credentials. Production adoption requires real user authentication, OAuth identity mapping for MCP, HTTPS, managed secrets, deployment configuration, and production operational controls. Demo login must stay behind an appropriate access boundary.
 
-Useful individual commands:
+Future extensions include notifications, employee/project administration, attachments, leave accrual, payroll, expenses, equipment requests, and multitenancy. They are possible applications of the approach, not implemented capabilities.
 
-```sh
-make backend-test                         # PostgreSQL tests skip without TEST_DATABASE_URL
-make frontend-test                        # Browser workflows against the dev frontend
-npm run test:e2e:production --prefix frontend
-.venv/bin/pytest -q backend/tests/test_api.py
-npm run test:e2e --prefix frontend -- --grep 'Monica can assign'
-```
+## Conclusion
 
-When fixing a bug, add a regression test that fails before the fix. When deliberately changing workflow rules, update the corresponding service/REST/browser expectations together. Passing tests validate these covered behaviors; they cannot guarantee every possible future change is correct.
+A SaaS platform's value comes from the work it enables. Natural language can make that work easier to access: employees can record time or request leave without remembering navigation paths, managers can discover pending reviews and delegate tasks in one conversation, and support staff can find and update issues while discussing them.
 
-## Demo walkthrough
+For companies, exposing well-defined business operations through MCP can reduce the need to build a complex frontend for every internal workflow or role. A shared agent interface can handle many routine interactions while engineering effort goes into reliable services, permissions, and data quality. Visual interfaces still help with grids, dashboards, bulk review, and checking results; this project's portal shows how both interfaces can coexist.
 
-1. Sign in as Dinesh, log seven hours on Compression Engine and describe the work.
-2. Edit the draft entry, then submit the week. The sheet becomes locked.
-3. Switch to Gilfoyle, open Manager Review, inspect entries, and approve.
-4. Switch back to Dinesh to see APPROVED and the reviewer name.
-5. Create leave, then review it as Gilfoyle; try an overlapping request to see validation.
-6. As Gilfoyle, assign a task to Jared. As Jared, mark it DONE.
-7. Create a support ticket as an employee; assign and resolve it as a manager.
-8. Search the directory for Dinesh and inspect his manager. Open Activity to see actions and outcomes.
+The same approach could support CRM updates, onboarding checklists, procurement requests, incident coordination, and cross-platform workflows through multiple authorized MCP integrations. It could also make infrequent tasks easier to discover and enable conversational or voice-based access. Those opportunities depend on clear tool contracts and dependable application behavior.
 
-## Deferred
-
-OAuth/public MCP hosting, cloud deployment, employee/project administration, notifications, file uploads, payroll, leave accrual, expenses, equipment requests, and multitenancy.
+Pied Piper Operations demonstrates the central idea: **describe the work in natural language, let the agent call the right tools, and let the SaaS platform enforce the rules and record the result.**

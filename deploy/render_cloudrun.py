@@ -10,14 +10,12 @@ def render(project, number, region, tag, output, portal_url=None, mcp_url=None):
     backend = f"{registry}/enterprise-backend:{tag}"
     frontend = f"{registry}/enterprise-frontend:{tag}"
     runtime = f"enterprise-portal-runtime@{project}.iam.gserviceaccount.com"
-    database = f"{project}:{region}:enterprise-portal-db"
     portal_url = portal_url or f"https://enterprise-portal-{number}.{region}.run.app"
     mcp_url = mcp_url or f"https://enterprise-mcp-{number}.{region}.run.app"
     common = [
-        {
-            "name": "DATABASE_URL",
-            "valueFrom": {"secretKeyRef": {"name": "enterprise-portal-database-url", "key": "1"}},
-        },
+        {"name": "FIRESTORE_PROJECT", "value": project},
+        {"name": "FIRESTORE_DATABASE", "value": "enterprise-portal"},
+        {"name": "FIRESTORE_NAMESPACE", "value": "portal"},
         {"name": "DEMO_MODE", "value": "true"},
         {"name": "WEB_ORIGIN", "value": portal_url},
         {
@@ -35,7 +33,6 @@ def render(project, number, region, tag, output, portal_url=None, mcp_url=None):
 
     def service(name, containers, dependencies=None):
         annotations = {
-            "run.googleapis.com/cloudsql-instances": database,
             "run.googleapis.com/execution-environment": "gen2",
             "autoscaling.knative.dev/maxScale": "2",
         }
@@ -118,7 +115,7 @@ def render(project, number, region, tag, output, portal_url=None, mcp_url=None):
         "metadata": {"name": "enterprise-portal-init"},
         "spec": {
             "template": {
-                "metadata": {"annotations": {"run.googleapis.com/cloudsql-instances": database}},
+                "metadata": {},
                 "spec": {
                     "template": {
                         "spec": {
@@ -133,7 +130,7 @@ def render(project, number, region, tag, output, portal_url=None, mcp_url=None):
                                     "command": ["sh"],
                                     "args": [
                                         "-c",
-                                        "alembic -c backend/alembic.ini upgrade head && python -m backend.app.demo seed --no-samples",
+                                        "python -m backend.app.demo seed --no-samples",
                                     ],
                                 }
                             ],

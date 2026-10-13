@@ -1,5 +1,8 @@
 """Idempotent seed data. Never resets existing workflow records."""
 
+from backend.app.database.connection import atomic
+
+
 from datetime import datetime, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo
@@ -81,6 +84,7 @@ def refresh_sample(record, fields):
             setattr(record, key, themed)
 
 
+@atomic
 def seed(include_samples=True):
     today = datetime.now(ZoneInfo(settings.app_timezone)).date()
     with SessionLocal.begin() as db:

@@ -4,7 +4,7 @@ from datetime import date, datetime, timezone
 from uuid import UUID
 
 import pytest
-from sqlalchemy import select
+from backend.app.database.query import select
 
 from backend.app.auth.context import ServiceError
 from backend.app.database.seed import uid
@@ -76,7 +76,7 @@ def test_combined_review_queue_filters_team_scope_and_pagination(call):
     "database_fixture",
     [
         "database",
-        pytest.param("postgres_database", marks=pytest.mark.postgres),
+        pytest.param("firestore_database", marks=pytest.mark.firestore),
     ],
 )
 def test_activity_dates_use_inclusive_chicago_days(call, request, database_fixture):

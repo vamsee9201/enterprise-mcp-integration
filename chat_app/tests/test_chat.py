@@ -1,16 +1,13 @@
-import os
 from uuid import UUID, uuid4
 
-os.environ.setdefault("DATABASE_URL", "sqlite://")
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 
 from backend.app.auth import tokens
 from backend.app.config import settings
-from backend.app.database.connection import Base
+from backend.app.database.connection import SessionFactory
+from backend.app.database import connection
 from backend.app.database import seed
 from backend.app.database.seed import uid
 from backend.app.models.entities import ChatConversation, SessionToken
@@ -36,15 +33,11 @@ def test_action_status_matches_real_tool_outcome(response, expected):
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    engine = create_engine(
-        f"sqlite:///{tmp_path}/chat.db", connect_args={"check_same_thread": False}
-    )
-    factory = sessionmaker(engine, expire_on_commit=False)
-    for module in (main, tokens, seed):
+    factory = SessionFactory(namespace="test-chat-" + str(uuid4()))
+    for module in (main, tokens, seed, connection):
         monkeypatch.setattr(module, "SessionLocal", factory)
     monkeypatch.setattr(settings, "demo_mode", True)
     monkeypatch.setattr(settings, "secure_cookies", False)
-    Base.metadata.create_all(engine)
     seed.seed(include_samples=False)
     calls = []
 
@@ -60,7 +53,7 @@ def client(tmp_path, monkeypatch):
         c.headers["Origin"] = "http://localhost:3400"
         c.factory, c.calls = factory, calls
         yield c
-    engine.dispose()
+    factory.reset()
 
 
 def login(client, number=2):
@@ -170,20 +163,14 @@ def test_failed_turn_is_saved_and_not_replayed(client, monkeypatch):
     assert send(client, session, turn=key).json()["replayed"]
 
 
-@pytest.mark.postgres
+@pytest.mark.firestore
 def test_concurrent_turns_are_serialized(monkeypatch):
     from concurrent.futures import ThreadPoolExecutor
     from threading import Barrier
     from fastapi import HTTPException
 
-    url = os.environ.get("TEST_DATABASE_URL")
-    if not url:
-        pytest.skip("Set TEST_DATABASE_URL to a disposable PostgreSQL test database")
-    assert url.startswith("postgresql") and "test" in url.rsplit("/", 1)[-1]
-    engine = create_engine(url)
-    Base.metadata.drop_all(engine)
-    Base.metadata.create_all(engine)
-    factory = sessionmaker(engine, expire_on_commit=False)
+    factory = SessionFactory(namespace="test-chat-race-" + str(uuid4()))
+    monkeypatch.setattr(connection, "SessionLocal", factory)
     monkeypatch.setattr(seed, "SessionLocal", factory)
     monkeypatch.setattr(main, "SessionLocal", factory)
     seed.seed(include_samples=False)
@@ -206,5 +193,4 @@ def test_concurrent_turns_are_serialized(monkeypatch):
         with factory() as db:
             assert len(db.get(ChatConversation, conversation_id).messages) == 1
     finally:
-        Base.metadata.drop_all(engine)
-        engine.dispose()
+        factory.reset()

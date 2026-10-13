@@ -2,7 +2,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    database_url: str = "postgresql+psycopg://portal:portal@localhost:5433/portal"
+    firestore_project: str = "demo-enterprise-portal"
+    firestore_database: str = "(default)"
+    firestore_namespace: str = "portal"
     demo_mode: bool = False
     app_timezone: str = "America/Chicago"
     web_origin: str = "http://localhost:3000"

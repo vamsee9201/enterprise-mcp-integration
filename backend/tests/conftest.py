@@ -1,13 +1,10 @@
 import os
 
-os.environ.setdefault("DATABASE_URL", "sqlite://")
 os.environ["DEMO_MODE"] = "true"
 
 import pytest
-from sqlalchemy import create_engine, event
-from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
-from backend.app.database.connection import Base
+from backend.app.database.connection import SessionFactory
 from backend.app.database import connection, seed as seed_module
 from backend.app.auth import tokens
 from backend.app.api import routes
@@ -18,28 +15,22 @@ from backend.app.database.seed import uid
 from uuid import uuid4
 
 
-def bind(monkeypatch, engine):
-    factory = sessionmaker(engine, expire_on_commit=False)
-    for module in (connection, seed_module, tokens, routes, portal):
+def bind(monkeypatch, factory):
+    from backend.app import main
+
+    for module in (connection, seed_module, tokens, routes, portal, main):
         monkeypatch.setattr(module, "SessionLocal", factory)
-    Base.metadata.create_all(engine)
     seed_module.seed()
     return factory
 
 
 @pytest.fixture
-def database(tmp_path, monkeypatch):
-    engine = create_engine(
-        f"sqlite:///{tmp_path}/test.db", connect_args={"check_same_thread": False}
-    )
-
-    @event.listens_for(engine, "connect")
-    def fk(conn, _):
-        conn.execute("PRAGMA foreign_keys=ON")
-
-    factory = bind(monkeypatch, engine)
+def database(monkeypatch):
+    if not os.environ.get("FIRESTORE_EMULATOR_HOST") and not os.environ.get("FIRESTORE_LIVE_TESTS"):
+        pytest.fail("Start Firestore emulator and set FIRESTORE_EMULATOR_HOST")
+    factory = bind(monkeypatch, SessionFactory(namespace="test-" + str(uuid4())))
     yield factory
-    engine.dispose()
+    factory.reset()
 
 
 @pytest.fixture
@@ -74,17 +65,5 @@ def login(client):
 
 
 @pytest.fixture
-def postgres_database(monkeypatch):
-    url = os.environ.get("TEST_DATABASE_URL")
-    if not url:
-        pytest.skip("Set TEST_DATABASE_URL to a disposable PostgreSQL database")
-    if not url.startswith("postgresql") or "test" not in url.rsplit("/", 1)[-1]:
-        pytest.fail(
-            "TEST_DATABASE_URL must identify a disposable PostgreSQL database with test in its name"
-        )
-    engine = create_engine(url)
-    Base.metadata.drop_all(engine)
-    factory = bind(monkeypatch, engine)
-    yield factory
-    Base.metadata.drop_all(engine)
-    engine.dispose()
+def firestore_database(database):
+    return database

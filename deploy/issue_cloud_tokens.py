@@ -1,14 +1,12 @@
-"""Issue cloud demo credentials through a temporary Cloud SQL proxy; never print tokens."""
+"""Issue cloud demo credentials through a Firestore workload credentials; never print tokens."""
 
 import argparse
 import json
 import os
-import subprocess
 import sys
 from pathlib import Path
 from uuid import UUID
 
-from sqlalchemy.engine import make_url
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -16,24 +14,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project", default="ai-lab-502500")
-    parser.add_argument("--proxy-port", type=int, default=5434)
-    parser.add_argument("--gcloud", default="gcloud")
+    parser.add_argument("--database", default="enterprise-portal")
     parser.add_argument("--output", type=Path, default=Path(".secrets/cloud-personas.json"))
     args = parser.parse_args()
-    secret = subprocess.check_output(
-        [
-            args.gcloud,
-            "secrets",
-            "versions",
-            "access",
-            "latest",
-            "--secret=enterprise-portal-database-url",
-            f"--project={args.project}",
-        ],
-        text=True,
-    ).strip()
-    url = make_url(secret).set(host="127.0.0.1", port=args.proxy_port, query={})
-    os.environ["DATABASE_URL"] = url.render_as_string(hide_password=False)
+    os.environ["FIRESTORE_PROJECT"] = args.project
+    os.environ["FIRESTORE_DATABASE"] = args.database
     os.environ["DEMO_MODE"] = "true"
     from backend.app.auth.tokens import issue_mcp_token
 

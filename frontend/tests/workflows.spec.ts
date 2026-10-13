@@ -254,7 +254,7 @@ test("workspace picks up an external API change on its next refresh", async ({
   const identity = await page.request.get("/api/v1/auth/me");
   const result = await page.request.post("/api/v1/time-entries", {
     headers: {
-      Origin: "http://localhost:3010",
+      Origin: "http://localhost:3020",
       "X-CSRF-Token": (await identity.json()).csrf_token,
     },
     data: {
@@ -709,7 +709,7 @@ test("filtered ticket pagination preserves search and displays the remaining rec
   const csrf = (await identity.json()).csrf_token;
   for (let index = 0; index < 51; index++) {
     const response = await page.request.post("/api/v1/tickets", {
-      headers: { Origin: "http://localhost:3010", "X-CSRF-Token": csrf },
+      headers: { Origin: "http://localhost:3020", "X-CSRF-Token": csrf },
       data: { title: `Pagination QA ${index}` },
     });
     expect(response.ok()).toBeTruthy();

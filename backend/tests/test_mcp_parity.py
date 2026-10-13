@@ -5,8 +5,7 @@ from datetime import date
 from uuid import UUID, uuid4
 import pytest
 from fastmcp import Client
-from sqlalchemy import select
-from backend.app.database.connection import Base
+from backend.app.database.query import select
 from backend.app.database import seed
 from backend.app.database.seed import uid
 from backend.app.models.entities import AuditEvent
@@ -208,9 +207,7 @@ def test_rest_mcp_operation_parity(name, database, login, client, monkeypatch):
     server, thread, endpoint = start_server(monkeypatch)
 
     def reset():
-        with database.begin() as db:
-            for table in reversed(Base.metadata.sorted_tables):
-                db.execute(table.delete())
+        database.reset()
         seed.seed()
 
     try:

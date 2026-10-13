@@ -1,36 +1,35 @@
 services:
-  db:
-    image: postgres:16-alpine
+  firestore:
+    image: gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators
+    command: [python3, /runner/firestore_emulator.py]
     environment:
-      POSTGRES_USER: portal
-      POSTGRES_PASSWORD: portal
-      POSTGRES_DB: portal
+      FIRESTORE_PROJECT: demo-enterprise-portal
+    stop_grace_period: 30s
     ports:
-      - "127.0.0.1:5433:5432"
+      - "127.0.0.1:8787:8787"
     volumes:
-      - portal-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U portal -d portal"]
-      interval: 3s
-      timeout: 3s
-      retries: 20
+      - firestore-data:/data
+      - ./scripts/firestore_emulator.py:/runner/firestore_emulator.py:ro
   init:
     build:
       context: .
       dockerfile: backend/Dockerfile
     environment: &backend-env
-      DATABASE_URL: postgresql+psycopg://portal:portal@db:5432/portal
+      FIRESTORE_EMULATOR_HOST: firestore:8787
+      FIRESTORE_PROJECT: demo-enterprise-portal
+      FIRESTORE_DATABASE: "(default)"
+      FIRESTORE_NAMESPACE: portal
       DEMO_MODE: "true"
       WEB_ORIGIN: http://localhost:3000
     command:
       [
         "sh",
         "-c",
-        "alembic -c backend/alembic.ini upgrade head && python -m backend.app.demo seed",
+        "python scripts/wait_firestore.py && python -m backend.app.demo seed --no-samples",
       ]
     depends_on:
-      db:
-        condition: service_healthy
+      firestore:
+        condition: service_started
   backend:
     build:
       context: .
@@ -80,4 +79,4 @@ services:
       backend:
         condition: service_healthy
 volumes:
-  portal-data:
+  firestore-data:
